@@ -106,7 +106,7 @@ export const commsService = {
 
 export const dashboardService = {
   getMetrics: (eventId) => api.get('/dashboard/metrics', { params: { event_id: eventId } }),
-  seedDemo: () => api.post('/seed'),
+  seedDemo: (force = true) => api.post('/seed', null, { params: { force } }),
 };
 
 export default api;

@@ -53,7 +53,7 @@ export default function App() {
 
   useEffect(() => {
     loadInitialData();
-  }, [selectedEventId]);
+  }, [selectedEventId, activeTab]);
 
   const handleResetDemo = async () => {
     try {

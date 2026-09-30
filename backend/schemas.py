@@ -187,8 +187,10 @@ class RebalanceRequest(BaseModel):
 
 class RebalanceAcceptRequest(BaseModel):
     volunteer_id: int
-    from_shift_id: int
-    to_shift_id: int
+    from_shift_id: Optional[int] = None
+    to_shift_id: Optional[int] = None
+    source_shift_id: Optional[int] = None
+    target_shift_id: Optional[int] = None
 
 
 # --- Task Schemas ---

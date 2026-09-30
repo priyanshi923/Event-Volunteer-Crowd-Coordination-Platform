@@ -247,6 +247,7 @@ export default function ShiftAssignment({
         role_id: null
       });
       fetchShifts();
+      if (onAssignmentChange) onAssignmentChange();
     } catch (err) {
       alert("Failed creating shift: " + (err.response?.data?.detail || err.message));
     }

@@ -107,7 +107,7 @@ def calculate_coverage(shift: models.Shift) -> Dict[str, Any]:
         "coverage_percentage": coverage_percentage,
         "coverage_gap": coverage_gap,
         "coverage_status": coverage_status,
-        "active_assignments": active_assignments
+        "active_assignment_ids": [a.id for a in active_assignments]
     }
 
 
@@ -584,6 +584,12 @@ def rebalance_assignments(db: Session, event_id: Optional[int] = None, apply: bo
                         "to_shift_id": target_shift.id,
                         "to_shift_title": target_shift.title,
                         "to_zone": target_shift.zone,
+                        "source_shift_id": source_shift.id,
+                        "source_shift_title": source_shift.title,
+                        "source_zone": source_shift.zone,
+                        "target_shift_id": target_shift.id,
+                        "target_shift_title": target_shift.title,
+                        "target_zone": target_shift.zone,
                         "score": eval_res["score"],
                         "skills": candidate.skills or "",
                         "reason": f"{suggestion_text}. {improvement_text}",

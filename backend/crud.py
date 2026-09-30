@@ -800,7 +800,20 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
     }
 
 # --- Database Seeder ---
-def seed_initial_data(db: Session):
+def seed_initial_data(db: Session, force_reset: bool = False):
+    if force_reset:
+        db.query(models.Issue).delete()
+        db.query(models.Announcement).delete()
+        db.query(models.Escalation).delete()
+        db.query(models.Task).delete()
+        db.query(models.ShiftAssignment).delete()
+        db.query(models.AttendanceRecord).delete()
+        db.query(models.Shift).delete()
+        db.query(models.Role).delete()
+        db.query(models.Volunteer).delete()
+        db.query(models.Event).delete()
+        db.commit()
+
     # Seed attendance records for existing database volunteers if table is empty
     if db.query(models.AttendanceRecord).count() == 0:
         for v in db.query(models.Volunteer).all():

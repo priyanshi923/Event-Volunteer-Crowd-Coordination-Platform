@@ -160,9 +160,15 @@ def create_new_shift(shift: schemas.ShiftCreate, db: Session = Depends(get_db)):
 @app.post("/api/assignments")
 @app.post("/assignments")
 def assign_shift(req: schemas.AssignShiftRequest, db: Session = Depends(get_db)):
-    assignment = crud.assign_volunteer_to_shift(db, req.shift_id, req.volunteer_id)
     shift = db.query(models.Shift).filter(models.Shift.id == req.shift_id).first()
-    cov = assignment_engine.calculate_coverage(shift) if shift else None
+    if not shift:
+        raise HTTPException(status_code=404, detail="Shift not found")
+    vol = db.query(models.Volunteer).filter(models.Volunteer.id == req.volunteer_id).first()
+    if not vol:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+
+    assignment = crud.assign_volunteer_to_shift(db, req.shift_id, req.volunteer_id)
+    cov = assignment_engine.calculate_coverage(shift)
     return {
         "message": "Volunteer assigned to shift successfully",
         "assignment_id": assignment.id,
@@ -277,11 +283,13 @@ def accept_rebalance_move(
     db: Session = Depends(get_db)
 ):
     """Coordinator accepts a specific rebalancing suggestion to transfer a volunteer between shifts."""
+    from_id = req.from_shift_id or req.source_shift_id
+    to_id = req.to_shift_id or req.target_shift_id
     result = assignment_engine.apply_single_rebalance(
         db,
         volunteer_id=req.volunteer_id,
-        from_shift_id=req.from_shift_id,
-        to_shift_id=req.to_shift_id
+        from_shift_id=from_id,
+        to_shift_id=to_id
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -465,6 +473,6 @@ def get_dashboard(event_id: Optional[int] = Query(None), db: Session = Depends(g
 
 @app.post("/api/seed")
 @app.post("/seed")
-def seed_demo_data(db: Session = Depends(get_db)):
-    crud.seed_initial_data(db)
+def seed_demo_data(force: bool = Query(False), db: Session = Depends(get_db)):
+    crud.seed_initial_data(db, force_reset=force)
     return {"message": "Demo data checked/seeded successfully"}
