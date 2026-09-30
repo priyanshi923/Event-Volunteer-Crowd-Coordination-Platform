@@ -324,23 +324,98 @@ def delete_task_item(task_id: int, db: Session = Depends(get_db)):
     return {"message": "Task deleted successfully"}
 
 
-# ----------------- 5. ANNOUNCEMENTS & ESCALATIONS -----------------
+# ----------------- 5. INCIDENTS, ISSUES & ANNOUNCEMENTS -----------------
+# --- Issues Endpoints ---
+@app.get("/issues", response_model=List[schemas.IssueOut])
+@app.get("/api/issues", response_model=List[schemas.IssueOut])
+def read_issues(
+    event_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    issue_type: Optional[str] = Query(None),
+    zone: Optional[str] = Query(None),
+    priority: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Retrieve issues with optional filters for event_id, status, issue_type, zone, priority."""
+    return crud.get_issues(
+        db,
+        event_id=event_id,
+        status=status,
+        issue_type=issue_type,
+        zone=zone,
+        priority=priority
+    )
+
+@app.post("/issues", response_model=schemas.IssueOut, status_code=status.HTTP_201_CREATED)
+@app.post("/api/issues", response_model=schemas.IssueOut, status_code=status.HTTP_201_CREATED)
+def create_new_issue(issue: schemas.IssueCreate, db: Session = Depends(get_db)):
+    """Create a new issue with automatic coordinator routing."""
+    return crud.create_issue(db, issue)
+
+@app.get("/issues/{issue_id}", response_model=schemas.IssueOut)
+@app.get("/api/issues/{issue_id}", response_model=schemas.IssueOut)
+def read_single_issue(issue_id: int, db: Session = Depends(get_db)):
+    iss = crud.get_issue(db, issue_id)
+    if not iss:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return iss
+
+@app.put("/issues/{issue_id}", response_model=schemas.IssueOut)
+@app.put("/api/issues/{issue_id}", response_model=schemas.IssueOut)
+def update_issue_details(issue_id: int, issue_data: schemas.IssueUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_issue(db, issue_id, issue_data)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return updated
+
+@app.post("/issues/{issue_id}/acknowledge", response_model=schemas.IssueOut)
+@app.post("/api/issues/{issue_id}/acknowledge", response_model=schemas.IssueOut)
+def acknowledge_issue_endpoint(issue_id: int, db: Session = Depends(get_db)):
+    acknowledged = crud.acknowledge_issue(db, issue_id)
+    if not acknowledged:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return acknowledged
+
+@app.post("/issues/{issue_id}/resolve", response_model=schemas.IssueOut)
+@app.post("/api/issues/{issue_id}/resolve", response_model=schemas.IssueOut)
+def resolve_issue_endpoint(issue_id: int, db: Session = Depends(get_db)):
+    resolved = crud.resolve_issue(db, issue_id)
+    if not resolved:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return resolved
+
+# --- Announcements Endpoints ---
+@app.get("/announcements", response_model=List[schemas.AnnouncementOut])
+@app.get("/api/announcements", response_model=List[schemas.AnnouncementOut])
+def read_all_announcements(
+    event_id: Optional[int] = Query(None),
+    target_type: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    return crud.get_announcements(db, event_id=event_id, target_type=target_type)
+
 @app.get("/api/events/{event_id}/announcements", response_model=List[schemas.AnnouncementOut])
+@app.get("/events/{event_id}/announcements", response_model=List[schemas.AnnouncementOut])
 def read_announcements(event_id: int, db: Session = Depends(get_db)):
     return crud.get_announcements_by_event(db, event_id)
 
+@app.post("/announcements", response_model=schemas.AnnouncementOut, status_code=status.HTTP_201_CREATED)
 @app.post("/api/announcements", response_model=schemas.AnnouncementOut, status_code=status.HTTP_201_CREATED)
 def broadcast_announcement(ann: schemas.AnnouncementCreate, db: Session = Depends(get_db)):
     return crud.create_announcement(db, ann)
 
+# --- Escalations Endpoints (Legacy & crowd incident support) ---
 @app.get("/api/events/{event_id}/escalations", response_model=List[schemas.EscalationOut])
+@app.get("/events/{event_id}/escalations", response_model=List[schemas.EscalationOut])
 def read_escalations(event_id: int, db: Session = Depends(get_db)):
     return crud.get_escalations_by_event(db, event_id)
 
+@app.post("/escalations", response_model=schemas.EscalationOut, status_code=status.HTTP_201_CREATED)
 @app.post("/api/escalations", response_model=schemas.EscalationOut, status_code=status.HTTP_201_CREATED)
 def report_escalation(esc: schemas.EscalationCreate, db: Session = Depends(get_db)):
     return crud.create_escalation(db, esc)
 
+@app.put("/escalations/{esc_id}", response_model=schemas.EscalationOut)
 @app.put("/api/escalations/{esc_id}", response_model=schemas.EscalationOut)
 def update_escalation_status(esc_id: int, data: schemas.EscalationUpdate, db: Session = Depends(get_db)):
     updated = crud.update_escalation(db, esc_id, data)
@@ -356,6 +431,7 @@ def get_dashboard(event_id: Optional[int] = Query(None), db: Session = Depends(g
     return crud.get_dashboard_metrics(db, event_id)
 
 @app.post("/api/seed")
+@app.post("/seed")
 def seed_demo_data(db: Session = Depends(get_db)):
     crud.seed_initial_data(db)
     return {"message": "Demo data checked/seeded successfully"}

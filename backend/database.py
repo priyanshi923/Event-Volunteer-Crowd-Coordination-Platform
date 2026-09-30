@@ -21,6 +21,20 @@ def init_db():
                 conn.exec_driver_sql("ALTER TABLE volunteers ADD COLUMN preferences VARCHAR(200) DEFAULT ''")
                 conn.commit()
 
+            # Add missing columns to announcements if needed
+            cursor_ann = conn.exec_driver_sql("PRAGMA table_info(announcements)")
+            ann_cols = [row[1] for row in cursor_ann.fetchall()]
+            if ann_cols:
+                if "message" not in ann_cols:
+                    conn.exec_driver_sql("ALTER TABLE announcements ADD COLUMN message TEXT DEFAULT ''")
+                if "target_type" not in ann_cols:
+                    conn.exec_driver_sql("ALTER TABLE announcements ADD COLUMN target_type VARCHAR(50) DEFAULT 'EVERYONE'")
+                if "target_value" not in ann_cols:
+                    conn.exec_driver_sql("ALTER TABLE announcements ADD COLUMN target_value VARCHAR(100) DEFAULT ''")
+                # Backfill message with content if message is empty
+                conn.exec_driver_sql("UPDATE announcements SET message = content WHERE (message IS NULL OR message = '') AND content IS NOT NULL")
+                conn.commit()
+
             # Normalize legacy task statuses to OPEN, IN_PROGRESS, RESOLVED
             conn.exec_driver_sql("UPDATE tasks SET status = 'OPEN' WHERE status IN ('todo', 'open')")
             conn.exec_driver_sql("UPDATE tasks SET status = 'IN_PROGRESS' WHERE status = 'in_progress'")

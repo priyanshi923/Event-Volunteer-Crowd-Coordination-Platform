@@ -1,3 +1,4 @@
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
 import models, schemas
@@ -464,14 +465,154 @@ def delete_task(db: Session, task_id: int):
         return True
     return False
 
+# --- Coordinator Routing Rule ---
+def route_issue_coordinator(issue_type: str) -> str:
+    mapping = {
+        "MEDICAL": "First Aid Coordinator",
+        "CROWD_SURGE": "Security Coordinator",
+        "SECURITY": "Security Coordinator",
+        "MISSING_EQUIPMENT": "Operations Coordinator",
+        "OTHER": "Event Coordinator",
+    }
+    return mapping.get(str(issue_type).strip().upper(), "Event Coordinator")
+
+# --- Issue CRUD ---
+def get_issues(
+    db: Session,
+    event_id: Optional[int] = None,
+    status: Optional[str] = None,
+    issue_type: Optional[str] = None,
+    zone: Optional[str] = None,
+    priority: Optional[str] = None
+):
+    query = db.query(models.Issue)
+    if event_id is not None:
+        query = query.filter(models.Issue.event_id == event_id)
+    if status:
+        query = query.filter(models.Issue.status == status.upper())
+    if issue_type:
+        query = query.filter(models.Issue.issue_type == issue_type.upper())
+    if zone:
+        query = query.filter(models.Issue.zone == zone)
+    if priority:
+        query = query.filter(models.Issue.priority == priority.upper())
+    return query.order_by(models.Issue.id.desc()).all()
+
+def get_issue(db: Session, issue_id: int):
+    return db.query(models.Issue).filter(models.Issue.id == issue_id).first()
+
+def create_issue(db: Session, issue: schemas.IssueCreate):
+    norm_type = str(issue.issue_type).strip().upper()
+    norm_priority = str(issue.priority or "MEDIUM").strip().upper()
+    norm_status = str(issue.status or "OPEN").strip().upper()
+
+    coordinator = issue.assigned_coordinator
+    if not coordinator or not coordinator.strip():
+        coordinator = route_issue_coordinator(norm_type)
+
+    event_id = issue.event_id
+    if event_id is None:
+        ev = db.query(models.Event).first()
+        if ev:
+            event_id = ev.id
+
+    db_issue = models.Issue(
+        event_id=event_id,
+        title=issue.title,
+        description=issue.description or "",
+        zone=issue.zone or "General",
+        issue_type=norm_type,
+        priority=norm_priority,
+        status=norm_status,
+        assigned_coordinator=coordinator,
+        created_at=datetime.utcnow()
+    )
+    db.add(db_issue)
+    db.commit()
+    db.refresh(db_issue)
+    return db_issue
+
+def update_issue(db: Session, issue_id: int, issue_data: schemas.IssueUpdate):
+    db_issue = db.query(models.Issue).filter(models.Issue.id == issue_id).first()
+    if not db_issue:
+        return None
+    data = issue_data.model_dump(exclude_unset=True)
+    if "status" in data and data["status"]:
+        new_status = str(data["status"]).strip().upper()
+        data["status"] = new_status
+        if new_status == "RESOLVED" and not db_issue.resolved_at:
+            db_issue.resolved_at = datetime.utcnow()
+        elif new_status == "ACKNOWLEDGED" and not db_issue.acknowledged_at:
+            db_issue.acknowledged_at = datetime.utcnow()
+    if "priority" in data and data["priority"]:
+        data["priority"] = str(data["priority"]).strip().upper()
+    if "issue_type" in data and data["issue_type"]:
+        new_type = str(data["issue_type"]).strip().upper()
+        data["issue_type"] = new_type
+        if "assigned_coordinator" not in data or not data["assigned_coordinator"]:
+            data["assigned_coordinator"] = route_issue_coordinator(new_type)
+
+    for key, val in data.items():
+        setattr(db_issue, key, val)
+    db.commit()
+    db.refresh(db_issue)
+    return db_issue
+
+def acknowledge_issue(db: Session, issue_id: int):
+    db_issue = db.query(models.Issue).filter(models.Issue.id == issue_id).first()
+    if not db_issue:
+        return None
+    db_issue.status = "ACKNOWLEDGED"
+    db_issue.acknowledged_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_issue)
+    return db_issue
+
+def resolve_issue(db: Session, issue_id: int):
+    db_issue = db.query(models.Issue).filter(models.Issue.id == issue_id).first()
+    if not db_issue:
+        return None
+    db_issue.status = "RESOLVED"
+    db_issue.resolved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_issue)
+    return db_issue
+
 # --- Announcement CRUD ---
+def get_announcements(db: Session, event_id: Optional[int] = None, target_type: Optional[str] = None):
+    query = db.query(models.Announcement)
+    if event_id is not None:
+        query = query.filter(models.Announcement.event_id == event_id)
+    if target_type:
+        query = query.filter(models.Announcement.target_type == target_type.upper())
+    return query.order_by(models.Announcement.id.desc()).all()
+
 def get_announcements_by_event(db: Session, event_id: int):
     return db.query(models.Announcement).filter(
         models.Announcement.event_id == event_id
     ).order_by(models.Announcement.id.desc()).all()
 
 def create_announcement(db: Session, ann: schemas.AnnouncementCreate):
-    db_ann = models.Announcement(**ann.model_dump())
+    data = ann.model_dump()
+    msg = data.get("message") or ""
+    cnt = data.get("content") or ""
+    if not cnt and msg:
+        cnt = msg
+    if not msg and cnt:
+        msg = cnt
+    data["content"] = cnt
+    data["message"] = msg
+    if not data.get("target_type"):
+        data["target_type"] = "EVERYONE"
+    else:
+        data["target_type"] = str(data["target_type"]).upper()
+
+    if data.get("event_id") is None:
+        ev = db.query(models.Event).first()
+        if ev:
+            data["event_id"] = ev.id
+
+    db_ann = models.Announcement(**data)
     db.add(db_ann)
     db.commit()
     db.refresh(db_ann)
@@ -534,6 +675,31 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
     resolved_tasks = sum(1 for t in tasks if str(t.status).upper() in ["RESOLVED", "DONE"])
     critical_high_open_tasks = sum(1 for t in tasks if str(t.status).upper() in ["OPEN", "TODO"] and str(t.priority).upper() in ["CRITICAL", "URGENT", "HIGH"])
 
+    # Issues metrics (Phase 5)
+    all_issues = db.query(models.Issue).filter(models.Issue.event_id == current_event_id).all() if current_event_id else db.query(models.Issue).all()
+    open_issues = sum(1 for i in all_issues if str(i.status).upper() == "OPEN")
+    critical_issues = sum(1 for i in all_issues if str(i.status).upper() == "OPEN" and str(i.priority).upper() == "CRITICAL")
+    high_priority_issues = sum(1 for i in all_issues if str(i.status).upper() == "OPEN" and str(i.priority).upper() == "HIGH")
+
+    urgent_issues_list = [
+        {
+            "id": i.id,
+            "event_id": i.event_id,
+            "title": i.title,
+            "description": i.description,
+            "zone": i.zone,
+            "issue_type": i.issue_type,
+            "priority": i.priority,
+            "status": i.status,
+            "assigned_coordinator": i.assigned_coordinator,
+            "created_at": i.created_at.isoformat() if i.created_at else None,
+            "is_urgent": True,
+            "requires_attention": True
+        }
+        for i in all_issues
+        if str(i.status).upper() == "OPEN" and str(i.priority).upper() in ["CRITICAL", "HIGH"]
+    ]
+
     escalations = db.query(models.Escalation).filter(models.Escalation.event_id == current_event_id).all() if current_event_id else []
     active_escalations = sum(1 for e in escalations if e.status != "Resolved")
     critical_escalations = sum(1 for e in escalations if e.severity == "Critical" and e.status != "Resolved")
@@ -544,19 +710,21 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
     for z in zones:
         zone_tasks = sum(1 for t in tasks if t.zone == z)
         zone_incidents = sum(1 for e in escalations if e.zone == z and e.status != "Resolved")
+        zone_issues = sum(1 for i in all_issues if i.zone == z and str(i.status).upper() != "RESOLVED")
         zone_volunteers = sum(1 for s in shifts if s.zone == z for _ in s.assignments)
-        
+
         # calculate crowd density status indicator
         status_flag = "Normal"
-        if zone_incidents > 0 or zone_tasks > 3:
+        if zone_incidents > 0 or zone_issues > 0 or zone_tasks > 3:
             status_flag = "Attention Needed"
-        if any(e.severity == "Critical" and e.status != "Resolved" for e in escalations if e.zone == z):
+        if any(e.severity == "Critical" and e.status != "Resolved" for e in escalations if e.zone == z) or \
+           any(str(i.priority).upper() == "CRITICAL" and str(i.status).upper() != "RESOLVED" for i in all_issues if i.zone == z):
             status_flag = "Critical Surge"
 
         zone_data.append({
             "zone": z,
             "active_tasks": zone_tasks,
-            "open_incidents": zone_incidents,
+            "open_incidents": zone_incidents + zone_issues,
             "assigned_staff": zone_volunteers,
             "status": status_flag
         })
@@ -578,9 +746,14 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
         "open_tasks": open_tasks,
         "pending_tasks": open_tasks,
         "in_progress_tasks": in_progress_tasks,
+        "tasks_in_progress": in_progress_tasks,
         "resolved_tasks": resolved_tasks,
         "done_tasks": resolved_tasks,
         "critical_high_open_tasks": critical_high_open_tasks,
+        "open_issues": open_issues,
+        "critical_issues": critical_issues,
+        "high_priority_issues": high_priority_issues,
+        "urgent_issues": urgent_issues_list,
         "active_escalations": active_escalations,
         "critical_escalations": critical_escalations,
         "zones_crowd_summary": zone_data
@@ -739,3 +912,29 @@ def seed_initial_data(db: Session):
         )
         db.add(e)
     db.commit()
+
+    # 9. Issues (Phase 5 System)
+    if db.query(models.Issue).count() == 0:
+        issues_data = [
+            ("Suspected Heat Stroke at Front Stage Barrier", "Attendee collapsed near front barricade. EMT requested immediately.", "Main Stage", "MEDICAL", "CRITICAL", "OPEN", "First Aid Coordinator"),
+            ("Crowd Surge at Gate 3 Turnstiles", "Over 200 attendees pressing through narrow queue line. Barricade bowing.", "North Gate", "CROWD_SURGE", "HIGH", "OPEN", "Security Coordinator"),
+            ("Missing UHF Two-Way Radios Box #4", "Box of 6 radios and battery chargers not found in logistics storage.", "Food Court", "MISSING_EQUIPMENT", "MEDIUM", "OPEN", "Operations Coordinator"),
+            ("Unauthorized Backstage Access Attempt", "Individual without RFID wristband attempted VIP lounge perimeter entry.", "VIP Lounge", "SECURITY", "HIGH", "ACKNOWLEDGED", "Security Coordinator"),
+            ("Signage fallen near Restroom B", "Directional sign detached from stanchion.", "General", "OTHER", "LOW", "RESOLVED", "Event Coordinator"),
+        ]
+        for title, desc, zone, itype, prio, st, coord in issues_data:
+            iss = models.Issue(
+                event_id=event1.id,
+                title=title,
+                description=desc,
+                zone=zone,
+                issue_type=itype,
+                priority=prio,
+                status=st,
+                assigned_coordinator=coord,
+                acknowledged_at=datetime.utcnow() if st in ["ACKNOWLEDGED", "RESOLVED"] else None,
+                resolved_at=datetime.utcnow() if st == "RESOLVED" else None,
+                created_at=datetime.utcnow()
+            )
+            db.add(iss)
+        db.commit()

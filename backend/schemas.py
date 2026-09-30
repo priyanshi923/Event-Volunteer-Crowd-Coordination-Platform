@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 # --- Event Schemas ---
 class EventBase(BaseModel):
@@ -229,19 +229,79 @@ class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Issue / Incident Schemas ---
+class IssueBase(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    zone: Optional[str] = "General"
+    issue_type: str  # MEDICAL, CROWD_SURGE, MISSING_EQUIPMENT, SECURITY, OTHER
+    priority: Optional[str] = "MEDIUM"  # LOW, MEDIUM, HIGH, CRITICAL
+    status: Optional[str] = "OPEN"  # OPEN, ACKNOWLEDGED, RESOLVED
+    assigned_coordinator: Optional[str] = None
+    event_id: Optional[int] = None
+
+class IssueCreate(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    zone: Optional[str] = "General"
+    issue_type: str
+    priority: Optional[str] = "MEDIUM"
+    status: Optional[str] = "OPEN"
+    assigned_coordinator: Optional[str] = None
+    event_id: Optional[int] = None
+
+class IssueUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    zone: Optional[str] = None
+    issue_type: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    assigned_coordinator: Optional[str] = None
+
+class IssueOut(BaseModel):
+    id: int
+    event_id: Optional[int] = None
+    title: str
+    description: Optional[str] = ""
+    zone: str
+    issue_type: str
+    priority: str
+    status: str
+    assigned_coordinator: str
+    created_at: datetime
+    acknowledged_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    is_urgent: bool = False
+    requires_attention: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def set_computed_fields(self):
+        pri = (self.priority or "").upper()
+        st = (self.status or "").upper()
+        urgent = pri in ["CRITICAL", "HIGH"] and st == "OPEN"
+        self.is_urgent = urgent
+        self.requires_attention = urgent
+        return self
+
+
 # --- Announcement Schemas ---
 class AnnouncementBase(BaseModel):
     title: str
-    content: str
+    content: Optional[str] = ""
+    message: Optional[str] = ""
+    target_type: Optional[str] = "EVERYONE"  # EVERYONE, ZONE, ROLE
+    target_value: Optional[str] = ""
     priority: Optional[str] = "General"
     author: Optional[str] = "Event Coordinator"
 
 class AnnouncementCreate(AnnouncementBase):
-    event_id: int
+    event_id: Optional[int] = None
 
 class AnnouncementOut(AnnouncementBase):
     id: int
-    event_id: int
+    event_id: Optional[int] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -293,6 +353,11 @@ class DashboardMetrics(BaseModel):
     resolved_tasks: Optional[int] = 0
     done_tasks: int
     critical_high_open_tasks: Optional[int] = 0
+    open_issues: Optional[int] = 0
+    critical_issues: Optional[int] = 0
+    high_priority_issues: Optional[int] = 0
+    tasks_in_progress: Optional[int] = 0
+    urgent_issues: Optional[List[dict]] = []
     active_escalations: int
     critical_escalations: int
     zones_crowd_summary: List[dict]

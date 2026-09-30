@@ -77,8 +77,25 @@ export const taskService = {
   deleteTask: (id) => api.delete(`/tasks/${id}`),
 };
 
+export const issueService = {
+  getIssues: (params) => api.get('/issues', { params }),
+  getIssue: (id) => api.get(`/issues/${id}`),
+  createIssue: (data) => api.post('/issues', data),
+  updateIssue: (id, data) => api.put(`/issues/${id}`, data),
+  acknowledgeIssue: (id) => api.post(`/issues/${id}/acknowledge`),
+  resolveIssue: (id) => api.post(`/issues/${id}/resolve`),
+};
+
 export const commsService = {
-  getAnnouncements: (eventId) => api.get(`/events/${eventId}/announcements`),
+  getAnnouncements: (eventIdOrParams) => {
+    if (typeof eventIdOrParams === 'object' && eventIdOrParams !== null) {
+      return api.get('/announcements', { params: eventIdOrParams });
+    }
+    if (eventIdOrParams) {
+      return api.get('/announcements', { params: { event_id: eventIdOrParams } });
+    }
+    return api.get('/announcements');
+  },
   createAnnouncement: (data) => api.post('/announcements', data),
   getEscalations: (eventId) => api.get(`/events/${eventId}/escalations`),
   createEscalation: (data) => api.post('/escalations', data),

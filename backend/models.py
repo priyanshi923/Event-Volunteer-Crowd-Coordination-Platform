@@ -20,6 +20,7 @@ class Event(Base):
     tasks = relationship("Task", back_populates="event", cascade="all, delete-orphan")
     announcements = relationship("Announcement", back_populates="event", cascade="all, delete-orphan")
     escalations = relationship("Escalation", back_populates="event", cascade="all, delete-orphan")
+    issues = relationship("Issue", back_populates="event", cascade="all, delete-orphan")
 
 
 class Role(Base):
@@ -133,12 +134,34 @@ class Announcement(Base):
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
     title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)
+    content = Column(Text, default="")
+    message = Column(Text, default="")
+    target_type = Column(String(50), default="EVERYONE")  # EVERYONE, ZONE, ROLE
+    target_value = Column(String(100), nullable=True, default="")
     priority = Column(String(50), default="General")  # General, High, Critical Alert
     author = Column(String(100), default="Event Coordinator")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     event = relationship("Event", back_populates="announcements")
+
+
+class Issue(Base):
+    __tablename__ = "issues"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    zone = Column(String(100), default="General")
+    issue_type = Column(String(50), nullable=False)  # MEDICAL, CROWD_SURGE, MISSING_EQUIPMENT, SECURITY, OTHER
+    priority = Column(String(50), default="MEDIUM")  # LOW, MEDIUM, HIGH, CRITICAL
+    status = Column(String(50), default="OPEN")  # OPEN, ACKNOWLEDGED, RESOLVED
+    assigned_coordinator = Column(String(150), default="Event Coordinator")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    acknowledged_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+    event = relationship("Event", back_populates="issues")
 
 
 class Escalation(Base):
