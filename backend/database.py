@@ -20,6 +20,18 @@ def init_db():
             if cols and "preferences" not in cols:
                 conn.exec_driver_sql("ALTER TABLE volunteers ADD COLUMN preferences VARCHAR(200) DEFAULT ''")
                 conn.commit()
+
+            # Normalize legacy task statuses to OPEN, IN_PROGRESS, RESOLVED
+            conn.exec_driver_sql("UPDATE tasks SET status = 'OPEN' WHERE status IN ('todo', 'open')")
+            conn.exec_driver_sql("UPDATE tasks SET status = 'IN_PROGRESS' WHERE status = 'in_progress'")
+            conn.exec_driver_sql("UPDATE tasks SET status = 'RESOLVED' WHERE status IN ('done', 'resolved')")
+
+            # Normalize legacy task priorities to LOW, MEDIUM, HIGH, CRITICAL
+            conn.exec_driver_sql("UPDATE tasks SET priority = 'CRITICAL' WHERE priority IN ('Urgent', 'urgent', 'Critical')")
+            conn.exec_driver_sql("UPDATE tasks SET priority = 'HIGH' WHERE priority IN ('High', 'high')")
+            conn.exec_driver_sql("UPDATE tasks SET priority = 'MEDIUM' WHERE priority IN ('Medium', 'medium')")
+            conn.exec_driver_sql("UPDATE tasks SET priority = 'LOW' WHERE priority IN ('Low', 'low')")
+            conn.commit()
         except Exception as e:
             print("Schema migration note:", e)
 

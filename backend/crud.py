@@ -294,25 +294,167 @@ def get_recommended_volunteers_for_shift(db: Session, shift_id: int):
     return scored_volunteers
 
 # --- Task CRUD ---
-def get_tasks_by_event(db: Session, event_id: int):
-    return db.query(models.Task).filter(models.Task.event_id == event_id).all()
+def format_task(task: models.Task):
+    if not task:
+        return None
+    # Normalize status: OPEN, IN_PROGRESS, RESOLVED
+    status_raw = (task.status or "OPEN").upper().strip()
+    if status_raw in ["TODO", "OPEN"]:
+        normalized_status = "OPEN"
+    elif status_raw in ["IN_PROGRESS", "IN PROGRESS", "PROGRESS"]:
+        normalized_status = "IN_PROGRESS"
+    elif status_raw in ["DONE", "RESOLVED", "COMPLETED"]:
+        normalized_status = "RESOLVED"
+    else:
+        normalized_status = "OPEN"
+
+    # Normalize priority: LOW, MEDIUM, HIGH, CRITICAL
+    p_raw = (task.priority or "MEDIUM").upper().strip()
+    if p_raw in ["URGENT", "CRITICAL"]:
+        normalized_priority = "CRITICAL"
+    elif p_raw in ["HIGH"]:
+        normalized_priority = "HIGH"
+    elif p_raw in ["LOW"]:
+        normalized_priority = "LOW"
+    else:
+        normalized_priority = "MEDIUM"
+
+    c_time = task.created_at.strftime("%Y-%m-%d %H:%M:%S") if task.created_at else None
+    u_time = task.updated_at.strftime("%Y-%m-%d %H:%M:%S") if task.updated_at else c_time
+
+    assigned_vol = None
+    if task.assigned_volunteer:
+        assigned_vol = format_volunteer_data(task.assigned_volunteer)
+
+    return {
+        "id": task.id,
+        "event_id": task.event_id,
+        "title": task.title,
+        "description": task.description or "",
+        "zone": task.zone or "General",
+        "priority": normalized_priority,
+        "status": normalized_status,
+        "assigned_volunteer_id": task.assigned_volunteer_id,
+        "assigned_volunteer": assigned_vol,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "created_time": c_time,
+        "updated_time": u_time,
+    }
+
+def get_tasks(db: Session, event_id: int = None, zone: str = None):
+    query = db.query(models.Task)
+    if event_id:
+        query = query.filter(models.Task.event_id == event_id)
+    if zone and zone != "All Zones":
+        query = query.filter(models.Task.zone == zone)
+    tasks = query.order_by(models.Task.id.desc()).all()
+    return [format_task(t) for t in tasks]
+
+def get_tasks_by_event(db: Session, event_id: int, zone: str = None):
+    return get_tasks(db, event_id=event_id, zone=zone)
 
 def create_task(db: Session, task: schemas.TaskCreate):
-    db_task = models.Task(**task.model_dump())
+    # 1. Validate assigned volunteer exists if ID is provided
+    if task.assigned_volunteer_id:
+        vol = db.query(models.Volunteer).filter(models.Volunteer.id == task.assigned_volunteer_id).first()
+        if not vol:
+            raise ValueError(f"Assigned volunteer with ID {task.assigned_volunteer_id} not found")
+
+    # 2. Resolve event_id if not provided
+    target_event_id = task.event_id
+    if not target_event_id:
+        active_evt = db.query(models.Event).first()
+        target_event_id = active_evt.id if active_evt else 1
+
+    # 3. Normalize priority
+    p_raw = (task.priority or "MEDIUM").upper().strip()
+    if p_raw in ["URGENT", "CRITICAL"]:
+        priority = "CRITICAL"
+    elif p_raw in ["HIGH", "LOW"]:
+        priority = p_raw
+    else:
+        priority = "MEDIUM"
+
+    # 4. Normalize status (Default OPEN)
+    s_raw = (task.status or "OPEN").upper().strip()
+    if s_raw in ["IN_PROGRESS", "IN PROGRESS"]:
+        status = "IN_PROGRESS"
+    elif s_raw in ["RESOLVED", "DONE"]:
+        status = "RESOLVED"
+    else:
+        status = "OPEN"
+
+    now = datetime.utcnow()
+    db_task = models.Task(
+        event_id=target_event_id,
+        title=task.title,
+        description=task.description or "",
+        zone=task.zone or "General",
+        priority=priority,
+        status=status,
+        assigned_volunteer_id=task.assigned_volunteer_id,
+        created_at=now,
+        updated_at=now
+    )
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
-    return db_task
+    return format_task(db_task)
 
 def update_task(db: Session, task_id: int, update_data: schemas.TaskUpdate):
     db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not db_task:
         return None
-    for key, val in update_data.model_dump(exclude_unset=True).items():
-        setattr(db_task, key, val)
+
+    data = update_data.model_dump(exclude_unset=True)
+
+    # Validate assigned_volunteer_id if present in update
+    if "assigned_volunteer_id" in data:
+        vid = data["assigned_volunteer_id"]
+        if vid is not None and vid > 0:
+            vol = db.query(models.Volunteer).filter(models.Volunteer.id == vid).first()
+            if not vol:
+                raise ValueError(f"Assigned volunteer with ID {vid} not found")
+            db_task.assigned_volunteer_id = vid
+        else:
+            db_task.assigned_volunteer_id = None
+
+    # Status update & normalization
+    if "status" in data and data["status"] is not None:
+        s_raw = str(data["status"]).upper().strip()
+        if s_raw in ["IN_PROGRESS", "IN PROGRESS"]:
+            db_task.status = "IN_PROGRESS"
+        elif s_raw in ["RESOLVED", "DONE"]:
+            db_task.status = "RESOLVED"
+        elif s_raw in ["OPEN", "TODO"]:
+            db_task.status = "OPEN"
+        else:
+            raise ValueError(f"Invalid status '{data['status']}'. Allowed: OPEN, IN_PROGRESS, RESOLVED")
+
+    # Priority update & normalization
+    if "priority" in data and data["priority"] is not None:
+        p_raw = str(data["priority"]).upper().strip()
+        if p_raw in ["URGENT", "CRITICAL"]:
+            db_task.priority = "CRITICAL"
+        elif p_raw in ["HIGH", "LOW"]:
+            db_task.priority = p_raw
+        elif p_raw in ["MEDIUM"]:
+            db_task.priority = "MEDIUM"
+        else:
+            raise ValueError(f"Invalid priority '{data['priority']}'. Allowed: LOW, MEDIUM, HIGH, CRITICAL")
+
+    if "title" in data and data["title"] is not None:
+        db_task.title = data["title"]
+    if "description" in data and data["description"] is not None:
+        db_task.description = data["description"]
+    if "zone" in data and data["zone"] is not None:
+        db_task.zone = data["zone"]
+
+    db_task.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_task)
-    return db_task
+    return format_task(db_task)
 
 def delete_task(db: Session, task_id: int):
     db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
@@ -387,9 +529,10 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
 
     tasks = db.query(models.Task).filter(models.Task.event_id == current_event_id).all() if current_event_id else []
     total_tasks = len(tasks)
-    pending_tasks = sum(1 for t in tasks if t.status == "todo")
-    in_progress_tasks = sum(1 for t in tasks if t.status == "in_progress")
-    done_tasks = sum(1 for t in tasks if t.status == "done")
+    open_tasks = sum(1 for t in tasks if str(t.status).upper() in ["OPEN", "TODO"])
+    in_progress_tasks = sum(1 for t in tasks if str(t.status).upper() in ["IN_PROGRESS", "IN PROGRESS"])
+    resolved_tasks = sum(1 for t in tasks if str(t.status).upper() in ["RESOLVED", "DONE"])
+    critical_high_open_tasks = sum(1 for t in tasks if str(t.status).upper() in ["OPEN", "TODO"] and str(t.priority).upper() in ["CRITICAL", "URGENT", "HIGH"])
 
     escalations = db.query(models.Escalation).filter(models.Escalation.event_id == current_event_id).all() if current_event_id else []
     active_escalations = sum(1 for e in escalations if e.status != "Resolved")
@@ -432,9 +575,12 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
         "total_shifts": total_shifts,
         "filled_shifts": filled_shifts,
         "total_tasks": total_tasks,
-        "pending_tasks": pending_tasks,
+        "open_tasks": open_tasks,
+        "pending_tasks": open_tasks,
         "in_progress_tasks": in_progress_tasks,
-        "done_tasks": done_tasks,
+        "resolved_tasks": resolved_tasks,
+        "done_tasks": resolved_tasks,
+        "critical_high_open_tasks": critical_high_open_tasks,
         "active_escalations": active_escalations,
         "critical_escalations": critical_escalations,
         "zones_crowd_summary": zone_data
@@ -553,12 +699,12 @@ def seed_initial_data(db: Session):
 
     # 6. Tasks (Kanban)
     tasks_data = [
-        ("Inspect barricades at Gate 3", "Ensure emergency latch release is operational and signs are visible", "North Gate", "High", "in_progress", created_vols[1].id),
-        ("Deploy 20 extra water cases to Medical Tent", "Crowd volume increased by 30% under direct sun", "Medical Tent", "Urgent", "todo", created_vols[4].id),
-        ("Calibrate badge RFID scanners at Gate 1", "3 scanners reported slow NFC sync during testing", "Registration", "Medium", "done", created_vols[2].id),
-        ("Direct overflow crowd toward South Concourse", "Prevent bottleneck around merchandise kiosks", "Main Stage", "Urgent", "in_progress", created_vols[6].id),
-        ("Restock first-aid ice packs and electrolytes", "Coordinate with main ambulance supply liaison", "Medical Tent", "High", "todo", created_vols[0].id),
-        ("Escort keynote panel speakers to Green Room B", "Check badges and supply briefing dossiers", "VIP Lounge", "Low", "done", None),
+        ("Inspect barricades at Gate 3", "Ensure emergency latch release is operational and signs are visible", "North Gate", "HIGH", "IN_PROGRESS", created_vols[1].id),
+        ("Deploy 20 extra water cases to Medical Tent", "Crowd volume increased by 30% under direct sun", "Medical Tent", "CRITICAL", "OPEN", created_vols[4].id),
+        ("Calibrate badge RFID scanners at Gate 1", "3 scanners reported slow NFC sync during testing", "Registration", "MEDIUM", "RESOLVED", created_vols[2].id),
+        ("Direct overflow crowd toward South Concourse", "Prevent bottleneck around merchandise kiosks", "Main Stage", "CRITICAL", "IN_PROGRESS", created_vols[6].id),
+        ("Restock first-aid ice packs and electrolytes", "Coordinate with main ambulance supply liaison", "Medical Tent", "HIGH", "OPEN", created_vols[0].id),
+        ("Escort keynote panel speakers to Green Room B", "Check badges and supply briefing dossiers", "VIP Lounge", "LOW", "RESOLVED", None),
     ]
     for title, desc, zone, priority, status, vid in tasks_data:
         t = models.Task(

@@ -166,7 +166,7 @@ export default function Dashboard({
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-white">{metrics.total_tasks}</span>
             <span className="text-xs font-medium text-emerald-400">
-              {metrics.done_tasks} Completed
+              {metrics.resolved_tasks ?? metrics.done_tasks} Resolved
             </span>
           </div>
           <div className="mt-3 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
@@ -176,8 +176,18 @@ export default function Dashboard({
             />
           </div>
           <div className="mt-2 flex justify-between text-[11px] text-slate-400">
+            <span>{metrics.open_tasks ?? metrics.pending_tasks} Open</span>
             <span>{metrics.in_progress_tasks} In Progress</span>
-            <span>{metrics.pending_tasks} Pending</span>
+          </div>
+          <div className="mt-1 flex justify-between text-[11px] text-slate-400">
+            <span>{metrics.resolved_tasks ?? metrics.done_tasks} Resolved</span>
+            {(metrics.critical_high_open_tasks > 0) ? (
+              <span className="text-rose-400 font-semibold">
+                ⚡ {metrics.critical_high_open_tasks} High/Crit Open
+              </span>
+            ) : (
+              <span className="text-slate-500">0 Critical Open</span>
+            )}
           </div>
         </div>
 

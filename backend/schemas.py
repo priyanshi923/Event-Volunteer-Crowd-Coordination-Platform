@@ -190,13 +190,19 @@ class RebalanceRequest(BaseModel):
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = ""
-    zone: Optional[str] = "General"
-    priority: Optional[str] = "Medium"
-    status: Optional[str] = "todo"
+    zone: str = "General"
+    priority: str = "MEDIUM"  # LOW, MEDIUM, HIGH, CRITICAL
+    status: Optional[str] = "OPEN"  # OPEN, IN_PROGRESS, RESOLVED
     assigned_volunteer_id: Optional[int] = None
 
-class TaskCreate(TaskBase):
-    event_id: int
+class TaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    zone: str
+    priority: str = "MEDIUM"  # LOW, MEDIUM, HIGH, CRITICAL
+    status: Optional[str] = "OPEN"
+    assigned_volunteer_id: Optional[int] = None
+    event_id: Optional[int] = None
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -206,12 +212,20 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     assigned_volunteer_id: Optional[int] = None
 
-class TaskOut(TaskBase):
+class TaskOut(BaseModel):
     id: int
-    event_id: int
-    created_at: datetime
-    updated_at: datetime
+    event_id: Optional[int] = None
+    title: str
+    description: Optional[str] = ""
+    zone: str
+    priority: str
+    status: str
+    assigned_volunteer_id: Optional[int] = None
     assigned_volunteer: Optional[VolunteerOut] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_time: Optional[str] = None
+    updated_time: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -273,9 +287,12 @@ class DashboardMetrics(BaseModel):
     total_shifts: int
     filled_shifts: int
     total_tasks: int
+    open_tasks: Optional[int] = 0
     pending_tasks: int
     in_progress_tasks: int
+    resolved_tasks: Optional[int] = 0
     done_tasks: int
+    critical_high_open_tasks: Optional[int] = 0
     active_escalations: int
     critical_escalations: int
     zones_crowd_summary: List[dict]

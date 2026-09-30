@@ -272,25 +272,55 @@ def volunteer_dropout(
 
 
 # ----------------- 4. LIVE TASK BOARD -----------------
-@app.get("/api/events/{event_id}/tasks", response_model=List[schemas.TaskOut])
-def read_tasks(event_id: int, db: Session = Depends(get_db)):
-    return crud.get_tasks_by_event(db, event_id)
+@app.get("/tasks", response_model=List[schemas.TaskOut])
+@app.get("/api/tasks", response_model=List[schemas.TaskOut])
+def read_all_tasks(
+    event_id: Optional[int] = Query(None),
+    zone: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Retrieve tasks with volunteer details, zone, priority, status, and timestamps."""
+    return crud.get_tasks(db, event_id=event_id, zone=zone)
 
+@app.get("/events/{event_id}/tasks", response_model=List[schemas.TaskOut])
+@app.get("/api/events/{event_id}/tasks", response_model=List[schemas.TaskOut])
+def read_event_tasks(
+    event_id: int,
+    zone: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    return crud.get_tasks_by_event(db, event_id, zone=zone)
+
+@app.post("/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
 @app.post("/api/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
 def create_new_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
-    return crud.create_task(db, task)
+    try:
+        return crud.create_task(db, task)
+    except ValueError as e:
+        err_msg = str(e)
+        if "not found" in err_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
 
+@app.put("/tasks/{task_id}", response_model=schemas.TaskOut)
 @app.put("/api/tasks/{task_id}", response_model=schemas.TaskOut)
 def update_task_details(task_id: int, task_data: schemas.TaskUpdate, db: Session = Depends(get_db)):
-    updated = crud.update_task(db, task_id, task_data)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return updated
+    try:
+        updated = crud.update_task(db, task_id, task_data)
+        if not updated:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        return updated
+    except ValueError as e:
+        err_msg = str(e)
+        if "not found" in err_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
 
+@app.delete("/tasks/{task_id}")
 @app.delete("/api/tasks/{task_id}")
 def delete_task_item(task_id: int, db: Session = Depends(get_db)):
     if not crud.delete_task(db, task_id):
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     return {"message": "Task deleted successfully"}
 
 

@@ -117,8 +117,8 @@ class Task(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, default="")
     zone = Column(String(100), default="General")
-    priority = Column(String(50), default="Medium")  # Low, Medium, High, Urgent
-    status = Column(String(50), default="todo")  # todo, in_progress, done
+    priority = Column(String(50), default="MEDIUM")  # LOW, MEDIUM, HIGH, CRITICAL
+    status = Column(String(50), default="OPEN")  # OPEN, IN_PROGRESS, RESOLVED
     assigned_volunteer_id = Column(Integer, ForeignKey("volunteers.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

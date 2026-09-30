@@ -66,7 +66,12 @@ export const shiftService = {
 };
 
 export const taskService = {
-  getTasks: (eventId) => api.get(`/events/${eventId}/tasks`),
+  getTasks: (params) => {
+    if (typeof params === 'object' && params !== null) {
+      return api.get('/tasks', { params });
+    }
+    return api.get('/tasks', { params: params ? { event_id: params } : {} });
+  },
   createTask: (data) => api.post('/tasks', data),
   updateTask: (id, data) => api.put(`/tasks/${id}`, data),
   deleteTask: (id) => api.delete(`/tasks/${id}`),
