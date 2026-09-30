@@ -1,0 +1,211 @@
+from typing import List, Optional
+from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from database import engine, Base, get_db
+import models, schemas, crud
+
+# Initialize database tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="Event Volunteer & Crowd Coordination Platform API",
+    description="Hackathon backend for Event Volunteer & Crowd Coordination Platform",
+    version="1.0.0"
+)
+
+# Enable CORS for React frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Startup hook to automatically seed mock data if database is empty
+@app.on_event("startup")
+def on_startup():
+    db = next(get_db())
+    crud.seed_initial_data(db)
+
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": "Event Volunteer & Crowd Coordination API",
+        "docs_url": "/docs"
+    }
+
+# ----------------- 1. EVENT & ROLE SETUP -----------------
+@app.get("/api/events", response_model=List[schemas.EventOut])
+def read_events(db: Session = Depends(get_db)):
+    return crud.get_events(db)
+
+@app.get("/api/events/{event_id}", response_model=schemas.EventOut)
+def read_event(event_id: int, db: Session = Depends(get_db)):
+    event = crud.get_event(db, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return event
+
+@app.post("/api/events", response_model=schemas.EventOut, status_code=status.HTTP_201_CREATED)
+def create_new_event(event: schemas.EventCreate, db: Session = Depends(get_db)):
+    return crud.create_event(db, event)
+
+@app.get("/api/events/{event_id}/roles", response_model=List[schemas.RoleOut])
+def read_roles(event_id: int, db: Session = Depends(get_db)):
+    return crud.get_roles_by_event(db, event_id)
+
+@app.post("/api/roles", response_model=schemas.RoleOut, status_code=status.HTTP_201_CREATED)
+def create_new_role(role: schemas.RoleCreate, db: Session = Depends(get_db)):
+    return crud.create_role(db, role)
+
+
+# ----------------- 2. VOLUNTEER PROFILES & CHECK-IN/OUT -----------------
+@app.get("/api/volunteers", response_model=List[schemas.VolunteerOut])
+def read_volunteers(
+    search: Optional[str] = Query(None, description="Search by name, skills or email"),
+    status: Optional[str] = Query(None, description="Filter by status: Registered, Checked In, Checked Out"),
+    db: Session = Depends(get_db)
+):
+    return crud.get_volunteers(db, search=search, status=status)
+
+@app.post("/api/volunteers", response_model=schemas.VolunteerOut, status_code=status.HTTP_201_CREATED)
+def register_volunteer(volunteer: schemas.VolunteerCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Volunteer).filter(models.Volunteer.email == volunteer.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Volunteer email already registered")
+    return crud.create_volunteer(db, volunteer)
+
+@app.get("/api/volunteers/{volunteer_id}", response_model=schemas.VolunteerOut)
+def read_volunteer(volunteer_id: int, db: Session = Depends(get_db)):
+    vol = crud.get_volunteer(db, volunteer_id)
+    if not vol:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    return vol
+
+@app.put("/api/volunteers/{volunteer_id}", response_model=schemas.VolunteerOut)
+def update_volunteer_profile(
+    volunteer_id: int,
+    data: schemas.VolunteerUpdate,
+    db: Session = Depends(get_db)
+):
+    vol = crud.update_volunteer(db, volunteer_id, data)
+    if not vol:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    return vol
+
+@app.post("/api/volunteers/{volunteer_id}/check-in", response_model=schemas.VolunteerOut)
+def volunteer_check_in(volunteer_id: int, db: Session = Depends(get_db)):
+    vol = crud.check_in_volunteer(db, volunteer_id)
+    if not vol:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    return vol
+
+@app.post("/api/volunteers/{volunteer_id}/check-out", response_model=schemas.VolunteerOut)
+def volunteer_check_out(volunteer_id: int, db: Session = Depends(get_db)):
+    vol = crud.check_out_volunteer(db, volunteer_id)
+    if not vol:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    return vol
+
+
+# ----------------- 3. SKILL-BASED SHIFT ASSIGNMENT -----------------
+@app.get("/api/events/{event_id}/shifts", response_model=List[schemas.ShiftOut])
+def read_shifts(event_id: int, db: Session = Depends(get_db)):
+    return crud.get_shifts_by_event(db, event_id)
+
+@app.post("/api/shifts", response_model=schemas.ShiftOut, status_code=status.HTTP_201_CREATED)
+def create_new_shift(shift: schemas.ShiftCreate, db: Session = Depends(get_db)):
+    return crud.create_shift(db, shift)
+
+@app.post("/api/shifts/assign")
+def assign_shift(req: schemas.AssignShiftRequest, db: Session = Depends(get_db)):
+    assignment = crud.assign_volunteer_to_shift(db, req.shift_id, req.volunteer_id)
+    return {"message": "Volunteer assigned to shift successfully", "assignment_id": assignment.id}
+
+@app.delete("/api/shifts/assignments/{assignment_id}")
+def unassign_shift(assignment_id: int, db: Session = Depends(get_db)):
+    success = crud.remove_shift_assignment(db, assignment_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Shift assignment not found")
+    return {"message": "Shift assignment removed"}
+
+@app.get("/api/shifts/{shift_id}/recommendations")
+def get_shift_recommendations(shift_id: int, db: Session = Depends(get_db)):
+    recs = crud.get_recommended_volunteers_for_shift(db, shift_id)
+    result = []
+    for r in recs:
+        v = r["volunteer"]
+        result.append({
+            "id": v.id,
+            "full_name": v.full_name,
+            "skills": v.skills,
+            "status": v.status,
+            "match_score": r["match_score"],
+            "is_assigned": r["is_assigned"],
+            "matching_skills": r["matching_skills"],
+            "is_checked_in": r["is_checked_in"]
+        })
+    return result
+
+
+# ----------------- 4. LIVE TASK BOARD -----------------
+@app.get("/api/events/{event_id}/tasks", response_model=List[schemas.TaskOut])
+def read_tasks(event_id: int, db: Session = Depends(get_db)):
+    return crud.get_tasks_by_event(db, event_id)
+
+@app.post("/api/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
+def create_new_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
+    return crud.create_task(db, task)
+
+@app.put("/api/tasks/{task_id}", response_model=schemas.TaskOut)
+def update_task_details(task_id: int, task_data: schemas.TaskUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_task(db, task_id, task_data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return updated
+
+@app.delete("/api/tasks/{task_id}")
+def delete_task_item(task_id: int, db: Session = Depends(get_db)):
+    if not crud.delete_task(db, task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"message": "Task deleted successfully"}
+
+
+# ----------------- 5. ANNOUNCEMENTS & ESCALATIONS -----------------
+@app.get("/api/events/{event_id}/announcements", response_model=List[schemas.AnnouncementOut])
+def read_announcements(event_id: int, db: Session = Depends(get_db)):
+    return crud.get_announcements_by_event(db, event_id)
+
+@app.post("/api/announcements", response_model=schemas.AnnouncementOut, status_code=status.HTTP_201_CREATED)
+def broadcast_announcement(ann: schemas.AnnouncementCreate, db: Session = Depends(get_db)):
+    return crud.create_announcement(db, ann)
+
+@app.get("/api/events/{event_id}/escalations", response_model=List[schemas.EscalationOut])
+def read_escalations(event_id: int, db: Session = Depends(get_db)):
+    return crud.get_escalations_by_event(db, event_id)
+
+@app.post("/api/escalations", response_model=schemas.EscalationOut, status_code=status.HTTP_201_CREATED)
+def report_escalation(esc: schemas.EscalationCreate, db: Session = Depends(get_db)):
+    return crud.create_escalation(db, esc)
+
+@app.put("/api/escalations/{esc_id}", response_model=schemas.EscalationOut)
+def update_escalation_status(esc_id: int, data: schemas.EscalationUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_escalation(db, esc_id, data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    return updated
+
+
+# ----------------- 6. COORDINATION DASHBOARD -----------------
+@app.get("/api/dashboard/metrics", response_model=schemas.DashboardMetrics)
+def get_dashboard(event_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
+    return crud.get_dashboard_metrics(db, event_id)
+
+@app.post("/api/seed")
+def seed_demo_data(db: Session = Depends(get_db)):
+    crud.seed_initial_data(db)
+    return {"message": "Demo data checked/seeded successfully"}
