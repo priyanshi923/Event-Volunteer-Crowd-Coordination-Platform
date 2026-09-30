@@ -114,19 +114,30 @@ def calculate_coverage(shift: models.Shift) -> Dict[str, Any]:
 # ----------------- VOLUNTEER WORKLOAD -----------------
 
 def get_volunteer_workload(db: Session, volunteer_id: int) -> float:
-    """Calculate the total assigned hours for a volunteer across all active shifts."""
+    """
+    Calculate the cumulative workload (actual worked hours from attendance records
+    + upcoming assigned shift hours) to ensure workload fairness.
+    """
+    # 1. Actual hours completed from attendance sessions
+    actual_records = db.query(models.AttendanceRecord).filter(
+        models.AttendanceRecord.volunteer_id == volunteer_id
+    ).all()
+    actual_hours = sum(r.hours_worked or 0.0 for r in actual_records)
+
+    # 2. Upcoming assigned shift hours
     assignments = db.query(models.ShiftAssignment).filter(
         models.ShiftAssignment.volunteer_id == volunteer_id,
         models.ShiftAssignment.status.in_(["Assigned", "Confirmed"])
     ).all()
 
-    total_hours = 0.0
+    assigned_hours = 0.0
     for a in assignments:
         if a.shift:
-            total_hours += calculate_shift_duration_hours(a.shift.start_time, a.shift.end_time)
+            assigned_hours += calculate_shift_duration_hours(a.shift.start_time, a.shift.end_time)
         else:
-            total_hours += 4.0
-    return round(total_hours, 1)
+            assigned_hours += 4.0
+
+    return round(actual_hours + assigned_hours, 1)
 
 
 # ----------------- RULE-BASED SCORING MODEL -----------------

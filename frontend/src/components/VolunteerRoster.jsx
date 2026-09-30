@@ -11,7 +11,11 @@ import {
   ShieldAlert,
   Award,
   CheckCircle2,
-  Clock
+  Clock,
+  Calendar,
+  History,
+  X,
+  Compass
 } from 'lucide-react';
 import { volunteerService } from '../services/api';
 
@@ -21,6 +25,8 @@ export default function VolunteerRoster({ onStatusChange }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
+  const [selectedVolunteerHistory, setSelectedVolunteerHistory] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // New volunteer form
   const [newVol, setNewVol] = useState({
@@ -29,7 +35,8 @@ export default function VolunteerRoster({ onStatusChange }) {
     phone: '',
     skills: 'Crowd Control, First Aid',
     emergency_contact: '',
-    notes: ''
+    notes: '',
+    preferences: 'North Gate'
   });
 
   const fetchVolunteers = async () => {
@@ -61,7 +68,7 @@ export default function VolunteerRoster({ onStatusChange }) {
       await fetchVolunteers();
       if (onStatusChange) onStatusChange();
     } catch (err) {
-      alert("Check-in failed: " + (err.response?.data?.detail || err.message));
+      alert(err.response?.data?.detail || err.message);
     }
   };
 
@@ -71,7 +78,19 @@ export default function VolunteerRoster({ onStatusChange }) {
       await fetchVolunteers();
       if (onStatusChange) onStatusChange();
     } catch (err) {
-      alert("Check-out failed: " + (err.response?.data?.detail || err.message));
+      alert(err.response?.data?.detail || err.message);
+    }
+  };
+
+  const handleViewHistory = async (id) => {
+    try {
+      setLoadingHistory(true);
+      const res = await volunteerService.getVolunteer(id);
+      setSelectedVolunteerHistory(res.data);
+    } catch (err) {
+      alert("Failed loading attendance history: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -87,20 +106,14 @@ export default function VolunteerRoster({ onStatusChange }) {
         phone: '',
         skills: 'Crowd Control, First Aid',
         emergency_contact: '',
-        notes: ''
+        notes: '',
+        preferences: 'North Gate'
       });
       fetchVolunteers();
       if (onStatusChange) onStatusChange();
     } catch (err) {
       alert("Registration failed: " + (err.response?.data?.detail || err.message));
     }
-  };
-
-  const statusCounts = {
-    all: volunteers.length,
-    checkedIn: volunteers.filter(v => v.status === 'Checked In').length,
-    registered: volunteers.filter(v => v.status === 'Registered').length,
-    checkedOut: volunteers.filter(v => v.status === 'Checked Out').length,
   };
 
   return (
@@ -110,10 +123,10 @@ export default function VolunteerRoster({ onStatusChange }) {
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-400" />
-            Volunteer Profiles & Gate Check-In
+            Volunteer Profiles & Attendance Tracking
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Manage volunteer competencies, track on-site presence, and record check-in/out timestamps.
+            Real-time gate check-in/out, automatic session hours calculation, availability, and assigned shifts.
           </p>
         </div>
 
@@ -169,10 +182,11 @@ export default function VolunteerRoster({ onStatusChange }) {
           No volunteers match the current search filter.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {volunteers.map((vol) => {
-            const isCheckedIn = vol.status === 'Checked In';
-            const isCheckedOut = vol.status === 'Checked Out';
+            const isCheckedIn = (vol.current_status || vol.status) === 'Checked In';
+            const isCheckedOut = (vol.current_status || vol.status) === 'Checked Out';
+            const name = vol.name || vol.full_name;
 
             const statusBadgeBg = isCheckedIn
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
@@ -181,6 +195,7 @@ export default function VolunteerRoster({ onStatusChange }) {
               : 'bg-blue-500/10 text-blue-400 border-blue-500/30';
 
             const skillsList = vol.skills ? vol.skills.split(',').map(s => s.trim()) : [];
+            const assignedShifts = vol.current_assigned_shifts || [];
 
             return (
               <div
@@ -188,27 +203,51 @@ export default function VolunteerRoster({ onStatusChange }) {
                 className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 transition-all flex flex-col justify-between shadow-md"
               >
                 <div>
-                  {/* Card Header */}
+                  {/* Card Header: Avatar, Name, Status, and Total Hours */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white font-bold text-sm flex items-center justify-center shadow-md">
-                        {vol.full_name.charAt(0)}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white font-bold text-sm flex items-center justify-center shadow-md shrink-0">
+                        {name.charAt(0)}
                       </div>
                       <div>
                         <h3 className="font-bold text-white text-sm sm:text-base leading-tight">
-                          {vol.full_name}
+                          {name}
                         </h3>
-                        <span className="text-[11px] text-slate-400">ID: #{vol.id}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] text-slate-400">ID: #{vol.id}</span>
+                          <span className="text-slate-600">•</span>
+                          <span className={`text-[10px] font-semibold ${isCheckedIn ? 'text-emerald-400' : 'text-slate-400'}`}>
+                            {vol.availability || (isCheckedOut ? 'Checked Out' : 'Available')}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${statusBadgeBg}`}>
-                      {vol.status}
-                    </span>
+                    <div className="text-right">
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${statusBadgeBg}`}>
+                        {vol.current_status || vol.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Total Hours Worked Badge */}
+                  <div className="mt-3.5 flex items-center justify-between bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-700/40 text-xs">
+                    <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{vol.total_hours_worked ?? 0.0} hrs worked</span>
+                    </div>
+                    <button
+                      onClick={() => handleViewHistory(vol.id)}
+                      title="View full attendance session logs"
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium transition-colors"
+                    >
+                      <History className="w-3 h-3" />
+                      <span>History</span>
+                    </button>
                   </div>
 
                   {/* Contact Info */}
-                  <div className="mt-3.5 space-y-1.5 text-xs text-slate-300">
+                  <div className="mt-3 space-y-1 text-xs text-slate-300">
                     <div className="flex items-center gap-2 text-slate-400">
                       <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                       <span className="truncate">{vol.email}</span>
@@ -225,10 +264,16 @@ export default function VolunteerRoster({ onStatusChange }) {
                         <span className="truncate">ICE: {vol.emergency_contact}</span>
                       </div>
                     )}
+                    {vol.preferences && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        <Compass className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        <span>Prefers: <strong className="text-slate-300">{vol.preferences}</strong></span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Skills tags */}
-                  <div className="mt-3.5">
+                  <div className="mt-3">
                     <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
                       Certified Skills
                     </span>
@@ -244,48 +289,148 @@ export default function VolunteerRoster({ onStatusChange }) {
                     </div>
                   </div>
 
+                  {/* Assigned Shifts */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-800/80">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                      Assigned Shifts ({assignedShifts.length})
+                    </span>
+                    {assignedShifts.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {assignedShifts.map((s, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 text-[11px] border border-slate-700 font-medium"
+                          >
+                            {s.title} ({s.zone})
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-500 italic">No active shifts assigned</span>
+                    )}
+                  </div>
+
                   {/* Timestamps */}
                   {(vol.check_in_time || vol.check_out_time) && (
                     <div className="mt-3 pt-2.5 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-0.5">
                       {vol.check_in_time && (
                         <div className="flex items-center gap-1.5">
                           <LogIn className="w-3 h-3 text-emerald-400" />
-                          <span>In: {vol.check_in_time}</span>
+                          <span>Last Check-In: {vol.check_in_time}</span>
                         </div>
                       )}
                       {vol.check_out_time && (
                         <div className="flex items-center gap-1.5">
                           <LogOut className="w-3 h-3 text-slate-400" />
-                          <span>Out: {vol.check_out_time}</span>
+                          <span>Last Check-Out: {vol.check_out_time}</span>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Check In / Out Quick Action */}
-                <div className="mt-4 pt-3 border-t border-slate-800">
-                  {isCheckedIn ? (
-                    <button
-                      onClick={() => handleCheckOut(vol.id)}
-                      className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                      <span>Check Out</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleCheckIn(vol.id)}
-                      className="w-full py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-semibold text-xs rounded-xl border border-emerald-500/30 flex items-center justify-center gap-1.5 transition-all shadow-md"
-                    >
-                      <LogIn className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
-                      <span>Check In to Venue</span>
-                    </button>
-                  )}
+                {/* Explicit Check In & Check Out Action Buttons */}
+                <div className="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleCheckIn(vol.id)}
+                    disabled={isCheckedIn}
+                    title={isCheckedIn ? "Volunteer is already checked in" : "Record check-in timestamp"}
+                    className={`py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      isCheckedIn
+                        ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
+                        : 'bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 shadow-md'
+                    }`}
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{isCheckedIn ? 'Checked In' : 'Check In'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleCheckOut(vol.id)}
+                    disabled={!isCheckedIn}
+                    title={!isCheckedIn ? "Cannot check out unless currently checked in" : "Record check-out & calculate session hours"}
+                    className={`py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      !isCheckedIn
+                        ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
+                        : 'bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 shadow-md'
+                    }`}
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Check Out</span>
+                  </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal: Volunteer Attendance History */}
+      {selectedVolunteerHistory && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-indigo-400" />
+                  Attendance History: {selectedVolunteerHistory.name || selectedVolunteerHistory.full_name}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Total Accumulated Hours: <strong className="text-amber-400">{selectedVolunteerHistory.total_hours_worked} hrs</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedVolunteerHistory(null)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto my-4 space-y-2.5 pr-1">
+              {(!selectedVolunteerHistory.attendance_history || selectedVolunteerHistory.attendance_history.length === 0) ? (
+                <div className="p-8 text-center text-slate-500 text-xs italic">
+                  No attendance session records logged for this volunteer yet.
+                </div>
+              ) : (
+                selectedVolunteerHistory.attendance_history.map((record) => (
+                  <div
+                    key={record.id}
+                    className="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700/60 flex items-center justify-between text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-emerald-400">
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>In: <strong>{record.check_in_time}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>
+                          Out: <strong>{record.check_out_time || 'Session In Progress'}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="block text-[10px] uppercase text-slate-500 font-bold">Duration</span>
+                      <span className="font-extrabold text-amber-300 text-sm">
+                        {record.hours_worked > 0 ? `${record.hours_worked} hrs` : 'Active'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setSelectedVolunteerHistory(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -319,15 +464,27 @@ export default function VolunteerRoster({ onStatusChange }) {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
-                <input
-                  type="text"
-                  placeholder="+1-555-0199"
-                  value={newVol.phone}
-                  onChange={(e) => setNewVol({ ...newVol, phone: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="+1-555-0199"
+                    value={newVol.phone}
+                    onChange={(e) => setNewVol({ ...newVol, phone: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Zone Preference</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. North Gate"
+                    value={newVol.preferences}
+                    onChange={(e) => setNewVol({ ...newVol, preferences: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
               </div>
 
               <div>

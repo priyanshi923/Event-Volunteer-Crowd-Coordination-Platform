@@ -114,7 +114,11 @@ export default function Dashboard({
             />
           </div>
           <div className="mt-2 flex justify-between text-[11px] text-slate-400">
-            <span>{checkInRate}% On-Site</span>
+            <span>{checkInRate}% Present ({metrics.checked_in_volunteers})</span>
+            <span>{metrics.available_volunteers ?? (metrics.total_volunteers - metrics.checked_out_volunteers)} Available</span>
+          </div>
+          <div className="mt-1 flex justify-between text-[11px] text-slate-400">
+            <span className="text-amber-300 font-medium">⚡ {metrics.total_volunteer_hours ?? 0} Total Hours</span>
             <span>{metrics.registered_volunteers} Registered</span>
           </div>
         </div>

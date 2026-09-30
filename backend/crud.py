@@ -29,6 +29,66 @@ def create_role(db: Session, role: schemas.RoleCreate):
     return db_role
 
 # --- Volunteer CRUD ---
+def format_volunteer_data(db_vol: models.Volunteer, include_history: bool = False):
+    total_hours = db_vol.total_hours_worked
+
+    assigned_shifts = [
+        {
+            "assignment_id": a.id,
+            "shift_id": a.shift_id,
+            "title": a.shift.title if a.shift else "Shift",
+            "zone": a.shift.zone if a.shift else "General",
+            "start_time": a.shift.start_time if a.shift else "",
+            "end_time": a.shift.end_time if a.shift else "",
+            "status": a.status
+        }
+        for a in (db_vol.shift_assignments or [])
+        if a.status in ("Assigned", "Confirmed")
+    ]
+
+    contact = {
+        "email": db_vol.email,
+        "phone": db_vol.phone or "",
+        "emergency_contact": db_vol.emergency_contact or ""
+    }
+
+    data = {
+        "id": db_vol.id,
+        "name": db_vol.full_name,
+        "full_name": db_vol.full_name,
+        "email": db_vol.email,
+        "phone": db_vol.phone,
+        "skills": db_vol.skills,
+        "availability": "Available" if db_vol.status != "Checked Out" else "Checked Out",
+        "preferences": db_vol.preferences or db_vol.notes or "General",
+        "contact_details": contact,
+        "emergency_contact": db_vol.emergency_contact,
+        "notes": db_vol.notes,
+        "current_status": db_vol.status,
+        "status": db_vol.status,
+        "total_hours_worked": total_hours,
+        "current_assigned_shifts": assigned_shifts,
+        "check_in_time": db_vol.check_in_time,
+        "check_out_time": db_vol.check_out_time,
+        "created_at": db_vol.created_at
+    }
+
+    if include_history:
+        history = [
+            {
+                "id": r.id,
+                "volunteer_id": r.volunteer_id,
+                "check_in_time": r.check_in_time,
+                "check_out_time": r.check_out_time,
+                "hours_worked": r.hours_worked,
+                "created_at": r.created_at
+            }
+            for r in sorted(db_vol.attendance_records or [], key=lambda x: x.id, reverse=True)
+        ]
+        data["attendance_history"] = history
+
+    return data
+
 def get_volunteers(db: Session, search: str = None, status: str = None):
     query = db.query(models.Volunteer)
     if search:
@@ -40,17 +100,24 @@ def get_volunteers(db: Session, search: str = None, status: str = None):
         )
     if status:
         query = query.filter(models.Volunteer.status == status)
-    return query.order_by(models.Volunteer.id.desc()).all()
+    volunteers = query.order_by(models.Volunteer.id.desc()).all()
+    return [format_volunteer_data(v) for v in volunteers]
 
 def get_volunteer(db: Session, volunteer_id: int):
     return db.query(models.Volunteer).filter(models.Volunteer.id == volunteer_id).first()
+
+def get_volunteer_detail(db: Session, volunteer_id: int):
+    vol = get_volunteer(db, volunteer_id)
+    if not vol:
+        return None
+    return format_volunteer_data(vol, include_history=True)
 
 def create_volunteer(db: Session, volunteer: schemas.VolunteerCreate):
     db_vol = models.Volunteer(**volunteer.model_dump())
     db.add(db_vol)
     db.commit()
     db.refresh(db_vol)
-    return db_vol
+    return format_volunteer_data(db_vol)
 
 def update_volunteer(db: Session, volunteer_id: int, update_data: schemas.VolunteerUpdate):
     db_vol = get_volunteer(db, volunteer_id)
@@ -60,29 +127,85 @@ def update_volunteer(db: Session, volunteer_id: int, update_data: schemas.Volunt
         setattr(db_vol, key, val)
     db.commit()
     db.refresh(db_vol)
-    return db_vol
+    return format_volunteer_data(db_vol)
 
 def check_in_volunteer(db: Session, volunteer_id: int):
     db_vol = get_volunteer(db, volunteer_id)
     if not db_vol:
-        return None
+        return None, "Volunteer not found"
+
+    # Prevent duplicate active check-ins
+    active_record = db.query(models.AttendanceRecord).filter(
+        models.AttendanceRecord.volunteer_id == volunteer_id,
+        models.AttendanceRecord.check_out_time == None
+    ).first()
+
+    if db_vol.status == "Checked In" or active_record is not None:
+        return None, f"Volunteer '{db_vol.full_name}' is already checked in"
+
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db_vol.status = "Checked In"
     db_vol.check_in_time = now_str
+
+    record = models.AttendanceRecord(
+        volunteer_id=db_vol.id,
+        check_in_time=now_str,
+        check_out_time=None,
+        hours_worked=0.0
+    )
+    db.add(record)
     db.commit()
     db.refresh(db_vol)
-    return db_vol
+    db.refresh(record)
+    return db_vol, record
 
 def check_out_volunteer(db: Session, volunteer_id: int):
     db_vol = get_volunteer(db, volunteer_id)
     if not db_vol:
-        return None
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return None, None, "Volunteer not found"
+
+    # Prevent checkout if the volunteer is not checked in
+    if db_vol.status != "Checked In":
+        return None, None, f"Volunteer '{db_vol.full_name}' is not currently checked in"
+
+    now = datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Find open attendance record
+    record = db.query(models.AttendanceRecord).filter(
+        models.AttendanceRecord.volunteer_id == volunteer_id,
+        models.AttendanceRecord.check_out_time == None
+    ).order_by(models.AttendanceRecord.id.desc()).first()
+
+    if not record:
+        in_time = db_vol.check_in_time or now_str
+        record = models.AttendanceRecord(
+            volunteer_id=db_vol.id,
+            check_in_time=in_time,
+            check_out_time=None,
+            hours_worked=0.0
+        )
+        db.add(record)
+        db.flush()
+
+    # Calculate hours worked for that attendance session
+    try:
+        in_dt = datetime.strptime(record.check_in_time, "%Y-%m-%d %H:%M:%S")
+        delta_seconds = (now - in_dt).total_seconds()
+        hours = round(max(0.01, delta_seconds / 3600.0), 2)
+    except Exception:
+        hours = 1.0
+
+    record.check_out_time = now_str
+    record.hours_worked = hours
+
     db_vol.status = "Checked Out"
     db_vol.check_out_time = now_str
+
     db.commit()
     db.refresh(db_vol)
-    return db_vol
+    db.refresh(record)
+    return db_vol, record, hours
 
 # --- Shift & Assignment CRUD ---
 def get_shifts_by_event(db: Session, event_id: int):
@@ -255,6 +378,8 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
     checked_in = sum(1 for v in volunteers if v.status == "Checked In")
     checked_out = sum(1 for v in volunteers if v.status == "Checked Out")
     registered = sum(1 for v in volunteers if v.status == "Registered")
+    available_volunteers = sum(1 for v in volunteers if v.status != "Checked Out")
+    total_volunteer_hours = round(sum(v.total_hours_worked for v in volunteers), 2)
 
     shifts = db.query(models.Shift).filter(models.Shift.event_id == current_event_id).all() if current_event_id else []
     total_shifts = len(shifts)
@@ -299,8 +424,11 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
         "active_event_name": current_event_name,
         "total_volunteers": total_volunteers,
         "checked_in_volunteers": checked_in,
+        "present_volunteers": checked_in,
         "checked_out_volunteers": checked_out,
         "registered_volunteers": registered,
+        "available_volunteers": available_volunteers,
+        "total_volunteer_hours": total_volunteer_hours,
         "total_shifts": total_shifts,
         "filled_shifts": filled_shifts,
         "total_tasks": total_tasks,
@@ -314,6 +442,25 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
 
 # --- Database Seeder ---
 def seed_initial_data(db: Session):
+    # Seed attendance records for existing database volunteers if table is empty
+    if db.query(models.AttendanceRecord).count() == 0:
+        for v in db.query(models.Volunteer).all():
+            if v.status == "Checked In":
+                db.add(models.AttendanceRecord(
+                    volunteer_id=v.id,
+                    check_in_time=v.check_in_time or "2026-10-01 08:30:00",
+                    check_out_time=None,
+                    hours_worked=0.0
+                ))
+            elif v.status == "Checked Out":
+                db.add(models.AttendanceRecord(
+                    volunteer_id=v.id,
+                    check_in_time=v.check_in_time or "2026-10-01 08:30:00",
+                    check_out_time=v.check_out_time or "2026-10-01 13:00:00",
+                    hours_worked=4.5
+                ))
+        db.commit()
+
     # Only seed if no events exist
     if db.query(models.Event).count() > 0:
         return

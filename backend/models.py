@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -50,10 +50,31 @@ class Volunteer(Base):
     check_out_time = Column(String(100), nullable=True)
     emergency_contact = Column(String(150), default="")
     notes = Column(Text, default="")
+    preferences = Column(String(200), default="")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     shift_assignments = relationship("ShiftAssignment", back_populates="volunteer", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="assigned_volunteer")
+    attendance_records = relationship("AttendanceRecord", back_populates="volunteer", cascade="all, delete-orphan")
+
+    @property
+    def total_hours_worked(self) -> float:
+        if not self.attendance_records:
+            return 0.0
+        return round(sum(r.hours_worked or 0.0 for r in self.attendance_records), 2)
+
+
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    volunteer_id = Column(Integer, ForeignKey("volunteers.id"), nullable=False)
+    check_in_time = Column(String(100), nullable=False)
+    check_out_time = Column(String(100), nullable=True)
+    hours_worked = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    volunteer = relationship("Volunteer", back_populates="attendance_records")
 
 
 class Shift(Base):

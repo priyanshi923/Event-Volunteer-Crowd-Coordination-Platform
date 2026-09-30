@@ -3,12 +3,12 @@ from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from database import engine, Base, get_db
+from database import engine, Base, get_db, init_db
 import models, schemas, crud
 import assignment_engine
 
-# Initialize database tables
-Base.metadata.create_all(bind=engine)
+# Initialize database tables and run lightweight migrations
+init_db()
 
 app = FastAPI(
     title="Event Volunteer & Crowd Coordination Platform API",
@@ -64,7 +64,8 @@ def create_new_role(role: schemas.RoleCreate, db: Session = Depends(get_db)):
     return crud.create_role(db, role)
 
 
-# ----------------- 2. VOLUNTEER PROFILES & CHECK-IN/OUT -----------------
+# ----------------- 2. VOLUNTEER PROFILES & ATTENDANCE TRACKING -----------------
+@app.get("/volunteers", response_model=List[schemas.VolunteerOut])
 @app.get("/api/volunteers", response_model=List[schemas.VolunteerOut])
 def read_volunteers(
     search: Optional[str] = Query(None, description="Search by name, skills or email"),
@@ -73,6 +74,7 @@ def read_volunteers(
 ):
     return crud.get_volunteers(db, search=search, status=status)
 
+@app.post("/volunteers", response_model=schemas.VolunteerOut, status_code=status.HTTP_201_CREATED)
 @app.post("/api/volunteers", response_model=schemas.VolunteerOut, status_code=status.HTTP_201_CREATED)
 def register_volunteer(volunteer: schemas.VolunteerCreate, db: Session = Depends(get_db)):
     existing = db.query(models.Volunteer).filter(models.Volunteer.email == volunteer.email).first()
@@ -80,13 +82,15 @@ def register_volunteer(volunteer: schemas.VolunteerCreate, db: Session = Depends
         raise HTTPException(status_code=400, detail="Volunteer email already registered")
     return crud.create_volunteer(db, volunteer)
 
-@app.get("/api/volunteers/{volunteer_id}", response_model=schemas.VolunteerOut)
+@app.get("/volunteers/{volunteer_id}", response_model=schemas.VolunteerDetailOut)
+@app.get("/api/volunteers/{volunteer_id}", response_model=schemas.VolunteerDetailOut)
 def read_volunteer(volunteer_id: int, db: Session = Depends(get_db)):
-    vol = crud.get_volunteer(db, volunteer_id)
+    vol = crud.get_volunteer_detail(db, volunteer_id)
     if not vol:
         raise HTTPException(status_code=404, detail="Volunteer not found")
     return vol
 
+@app.put("/volunteers/{volunteer_id}", response_model=schemas.VolunteerOut)
 @app.put("/api/volunteers/{volunteer_id}", response_model=schemas.VolunteerOut)
 def update_volunteer_profile(
     volunteer_id: int,
@@ -98,19 +102,46 @@ def update_volunteer_profile(
         raise HTTPException(status_code=404, detail="Volunteer not found")
     return vol
 
-@app.post("/api/volunteers/{volunteer_id}/check-in", response_model=schemas.VolunteerOut)
+@app.post("/volunteers/{volunteer_id}/check-in", response_model=schemas.CheckInResponse)
+@app.post("/api/volunteers/{volunteer_id}/check-in", response_model=schemas.CheckInResponse)
 def volunteer_check_in(volunteer_id: int, db: Session = Depends(get_db)):
-    vol = crud.check_in_volunteer(db, volunteer_id)
+    vol, record_or_err = crud.check_in_volunteer(db, volunteer_id)
     if not vol:
-        raise HTTPException(status_code=404, detail="Volunteer not found")
-    return vol
+        if record_or_err == "Volunteer not found":
+            raise HTTPException(status_code=404, detail=record_or_err)
+        # Duplicate check-in prevention
+        raise HTTPException(status_code=400, detail=record_or_err)
 
-@app.post("/api/volunteers/{volunteer_id}/check-out", response_model=schemas.VolunteerOut)
+    return {
+        "volunteer_id": vol.id,
+        "volunteer_name": vol.full_name,
+        "name": vol.full_name,
+        "check_in_time": record_or_err.check_in_time,
+        "status": vol.status,
+        "message": f"Volunteer '{vol.full_name}' checked in successfully at {record_or_err.check_in_time}"
+    }
+
+@app.post("/volunteers/{volunteer_id}/check-out", response_model=schemas.CheckOutResponse)
+@app.post("/api/volunteers/{volunteer_id}/check-out", response_model=schemas.CheckOutResponse)
 def volunteer_check_out(volunteer_id: int, db: Session = Depends(get_db)):
-    vol = crud.check_out_volunteer(db, volunteer_id)
+    vol, record, err_or_hours = crud.check_out_volunteer(db, volunteer_id)
     if not vol:
-        raise HTTPException(status_code=404, detail="Volunteer not found")
-    return vol
+        if err_or_hours == "Volunteer not found":
+            raise HTTPException(status_code=404, detail=err_or_hours)
+        # Prevent checkout if not checked in
+        raise HTTPException(status_code=400, detail=err_or_hours)
+
+    return {
+        "volunteer_id": vol.id,
+        "volunteer_name": vol.full_name,
+        "name": vol.full_name,
+        "check_in_time": record.check_in_time,
+        "check_out_time": record.check_out_time,
+        "hours_worked": err_or_hours,
+        "total_hours_worked": vol.total_hours_worked,
+        "status": vol.status,
+        "message": f"Volunteer '{vol.full_name}' checked out successfully. Session: {err_or_hours}h. Total: {vol.total_hours_worked}h"
+    }
 
 
 # ----------------- 3. SKILL-BASED SHIFT ASSIGNMENT -----------------
@@ -289,6 +320,7 @@ def update_escalation_status(esc_id: int, data: schemas.EscalationUpdate, db: Se
 
 
 # ----------------- 6. COORDINATION DASHBOARD -----------------
+@app.get("/dashboard/metrics", response_model=schemas.DashboardMetrics)
 @app.get("/api/dashboard/metrics", response_model=schemas.DashboardMetrics)
 def get_dashboard(event_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     return crud.get_dashboard_metrics(db, event_id)

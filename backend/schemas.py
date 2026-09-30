@@ -58,13 +58,65 @@ class VolunteerUpdate(BaseModel):
     notes: Optional[str] = None
     status: Optional[str] = None
 
+class AttendanceRecordOut(BaseModel):
+    id: int
+    volunteer_id: int
+    check_in_time: str
+    check_out_time: Optional[str] = None
+    hours_worked: float = 0.0
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class AssignedShiftSummary(BaseModel):
+    assignment_id: int
+    shift_id: int
+    title: str
+    zone: str
+    start_time: str
+    end_time: str
+    status: str
+
+class ContactDetailsOut(BaseModel):
+    email: str
+    phone: Optional[str] = ""
+    emergency_contact: Optional[str] = ""
+
 class VolunteerOut(VolunteerBase):
     id: int
+    name: Optional[str] = None
     status: str
+    current_status: Optional[str] = None
+    availability: Optional[str] = "Available"
+    preferences: Optional[str] = ""
+    contact_details: Optional[ContactDetailsOut] = None
+    total_hours_worked: float = 0.0
+    current_assigned_shifts: List[AssignedShiftSummary] = []
     check_in_time: Optional[str] = None
     check_out_time: Optional[str] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class VolunteerDetailOut(VolunteerOut):
+    attendance_history: List[AttendanceRecordOut] = []
+
+class CheckInResponse(BaseModel):
+    volunteer_id: int
+    volunteer_name: str
+    name: Optional[str] = None
+    check_in_time: str
+    status: str
+    message: str
+
+class CheckOutResponse(BaseModel):
+    volunteer_id: int
+    volunteer_name: str
+    name: Optional[str] = None
+    check_in_time: str
+    check_out_time: str
+    hours_worked: float
+    total_hours_worked: float
+    status: str
+    message: str
 
 
 # --- Shift Schemas ---
@@ -213,8 +265,11 @@ class DashboardMetrics(BaseModel):
     active_event_name: Optional[str]
     total_volunteers: int
     checked_in_volunteers: int
+    present_volunteers: Optional[int] = 0
     checked_out_volunteers: int
     registered_volunteers: int
+    available_volunteers: Optional[int] = 0
+    total_volunteer_hours: Optional[float] = 0.0
     total_shifts: int
     filled_shifts: int
     total_tasks: int
