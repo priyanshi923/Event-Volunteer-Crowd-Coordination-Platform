@@ -154,11 +154,27 @@ def create_new_shift(shift: schemas.ShiftCreate, db: Session = Depends(get_db)):
     return crud.create_shift(db, shift)
 
 @app.post("/api/shifts/assign")
+@app.post("/shifts/assign")
+@app.post("/api/assignments/assign")
+@app.post("/assignments/assign")
+@app.post("/api/assignments")
+@app.post("/assignments")
 def assign_shift(req: schemas.AssignShiftRequest, db: Session = Depends(get_db)):
     assignment = crud.assign_volunteer_to_shift(db, req.shift_id, req.volunteer_id)
-    return {"message": "Volunteer assigned to shift successfully", "assignment_id": assignment.id}
+    shift = db.query(models.Shift).filter(models.Shift.id == req.shift_id).first()
+    cov = assignment_engine.calculate_coverage(shift) if shift else None
+    return {
+        "message": "Volunteer assigned to shift successfully",
+        "assignment_id": assignment.id,
+        "shift_id": req.shift_id,
+        "volunteer_id": req.volunteer_id,
+        "coverage": cov
+    }
 
 @app.delete("/api/shifts/assignments/{assignment_id}")
+@app.delete("/shifts/assignments/{assignment_id}")
+@app.delete("/api/assignments/{assignment_id}")
+@app.delete("/assignments/{assignment_id}")
 def unassign_shift(assignment_id: int, db: Session = Depends(get_db)):
     success = crud.remove_shift_assignment(db, assignment_id)
     if not success:
@@ -181,7 +197,7 @@ def get_shift_recommendations(shift_id: int, db: Session = Depends(get_db)):
         result.append({
             "id": s["volunteer_id"],
             "full_name": s["volunteer_name"],
-            "skills": ", ".join(s["matched_skills"]) if s["matched_skills"] else "General",
+            "skills": ", ".join(s["matched_skills"]) if s["matched_skills"] else (s.get("skills") or "General"),
             "status": s["availability"],
             "match_score": s["score"],
             "is_assigned": False,
@@ -254,6 +270,23 @@ def rebalance_staffing(
     result = assignment_engine.rebalance_assignments(db, req.event_id, req.apply or False)
     return result
 
+@app.post("/assignments/rebalance/accept")
+@app.post("/api/assignments/rebalance/accept")
+def accept_rebalance_move(
+    req: schemas.RebalanceAcceptRequest,
+    db: Session = Depends(get_db)
+):
+    """Coordinator accepts a specific rebalancing suggestion to transfer a volunteer between shifts."""
+    result = assignment_engine.apply_single_rebalance(
+        db,
+        volunteer_id=req.volunteer_id,
+        from_shift_id=req.from_shift_id,
+        to_shift_id=req.to_shift_id
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
 @app.post("/assignments/dropout")
 @app.post("/api/assignments/dropout")
 @app.post("/shifts/{shift_id}/dropout")
@@ -263,7 +296,7 @@ def volunteer_dropout(
     shift_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    """Mark volunteer unavailable for shift, remove active assignment, recalculate coverage, and return top 3 replacements."""
+    """Mark volunteer unavailable for shift, remove active assignment, recalculate coverage, and return replacement suggestions."""
     target_shift_id = shift_id or req.shift_id
     result = assignment_engine.handle_volunteer_dropout(db, target_shift_id, req.volunteer_id)
     if "error" in result:

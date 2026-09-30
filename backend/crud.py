@@ -229,12 +229,18 @@ def assign_volunteer_to_shift(db: Session, shift_id: int, volunteer_id: int):
         models.ShiftAssignment.volunteer_id == volunteer_id
     ).first()
     if existing:
+        if existing.status != "Assigned":
+            existing.status = "Assigned"
+            existing.assigned_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
         return existing
-    
+
     assignment = models.ShiftAssignment(
         shift_id=shift_id,
         volunteer_id=volunteer_id,
-        status="Assigned"
+        status="Assigned",
+        assigned_at=datetime.utcnow()
     )
     db.add(assignment)
     db.commit()
@@ -729,6 +735,33 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
             "status": status_flag
         })
 
+    # Phase 6: Staffing Rebalancing, Coverage Gaps & Replacement Needs
+    rebalance_data = assignment_engine.rebalance_assignments(db, current_event_id, apply=False)
+    rebalancing_suggestions = rebalance_data.get("suggestions", [])
+    understaffed_zones = rebalance_data.get("understaffed_zones", [])
+    overstaffed_zones = rebalance_data.get("overstaffed_zones", [])
+    understaffed_shifts_count = rebalance_data.get("understaffed_shifts_count", 0)
+    overstaffed_shifts_count = rebalance_data.get("overstaffed_shifts_count", 0)
+
+    # Coverage gaps count and replacement candidates for deficient shifts
+    shifts_coverage_list = [assignment_engine.calculate_coverage(s) for s in shifts]
+    total_coverage_gaps = sum(c["coverage_gap"] for c in shifts_coverage_list)
+
+    replacement_needed_shifts = []
+    for s, cov in zip(shifts, shifts_coverage_list):
+        if cov["coverage_gap"] > 0:
+            top_recs = assignment_engine.get_shift_suggestions(db, s.id, limit=2)
+            replacement_needed_shifts.append({
+                "shift_id": s.id,
+                "shift_title": s.title,
+                "zone": s.zone,
+                "required_skill": s.required_skill,
+                "coverage_gap": cov["coverage_gap"],
+                "coverage_status": cov["coverage_status"],
+                "coverage_percentage": cov["coverage_percentage"],
+                "suggested_replacements": top_recs
+            })
+
     return {
         "total_events": len(events),
         "active_event_id": current_event_id,
@@ -756,6 +789,13 @@ def get_dashboard_metrics(db: Session, event_id: int = None):
         "urgent_issues": urgent_issues_list,
         "active_escalations": active_escalations,
         "critical_escalations": critical_escalations,
+        "coverage_gaps_count": total_coverage_gaps,
+        "understaffed_shifts_count": understaffed_shifts_count,
+        "overstaffed_shifts_count": overstaffed_shifts_count,
+        "understaffed_zones": understaffed_zones,
+        "overstaffed_zones": overstaffed_zones,
+        "rebalancing_suggestions": rebalancing_suggestions,
+        "replacement_needed_shifts": replacement_needed_shifts,
         "zones_crowd_summary": zone_data
     }
 

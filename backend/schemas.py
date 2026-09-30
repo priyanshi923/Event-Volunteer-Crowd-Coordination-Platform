@@ -185,6 +185,11 @@ class RebalanceRequest(BaseModel):
     event_id: Optional[int] = None
     apply: Optional[bool] = False
 
+class RebalanceAcceptRequest(BaseModel):
+    volunteer_id: int
+    from_shift_id: int
+    to_shift_id: int
+
 
 # --- Task Schemas ---
 class TaskBase(BaseModel):
@@ -360,4 +365,11 @@ class DashboardMetrics(BaseModel):
     urgent_issues: Optional[List[dict]] = []
     active_escalations: int
     critical_escalations: int
+    coverage_gaps_count: Optional[int] = 0
+    understaffed_shifts_count: Optional[int] = 0
+    overstaffed_shifts_count: Optional[int] = 0
+    understaffed_zones: Optional[List[str]] = []
+    overstaffed_zones: Optional[List[str]] = []
+    rebalancing_suggestions: Optional[List[dict]] = []
+    replacement_needed_shifts: Optional[List[dict]] = []
     zones_crowd_summary: List[dict]

@@ -61,6 +61,8 @@ export const shiftService = {
     api.post('/assignments/dropout', { shift_id: shiftId, volunteer_id: volunteerId }),
   rebalance: (data = {}) =>
     api.post('/assignments/rebalance', data),
+  acceptRebalance: (data) =>
+    api.post('/assignments/rebalance/accept', data),
   getAssignments: (params) =>
     api.get('/assignments', { params }),
 };
