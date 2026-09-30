@@ -89,6 +89,13 @@ class ShiftAssignmentOut(BaseModel):
     volunteer: Optional[VolunteerOut] = None
     model_config = ConfigDict(from_attributes=True)
 
+class CoverageOut(BaseModel):
+    required_count: int
+    assigned_count: int
+    coverage_percentage: float
+    coverage_gap: int
+    coverage_status: str
+
 class ShiftOut(ShiftBase):
     id: int
     event_id: int
@@ -96,11 +103,35 @@ class ShiftOut(ShiftBase):
     created_at: datetime
     assignments: List[ShiftAssignmentOut] = []
     role: Optional[RoleOut] = None
+    coverage: Optional[CoverageOut] = None
     model_config = ConfigDict(from_attributes=True)
 
 class AssignShiftRequest(BaseModel):
     shift_id: int
     volunteer_id: int
+
+class ShiftSuggestionOut(BaseModel):
+    volunteer_id: int
+    volunteer_name: str
+    matched_skills: List[str] = []
+    availability: str
+    conflict_status: str
+    current_workload: float
+    score: float
+    reason: str
+    score_breakdown: Optional[dict] = None
+
+class AutoAssignRequest(BaseModel):
+    shift_id: Optional[int] = None
+    event_id: Optional[int] = None
+
+class DropoutRequest(BaseModel):
+    shift_id: int
+    volunteer_id: int
+
+class RebalanceRequest(BaseModel):
+    event_id: Optional[int] = None
+    apply: Optional[bool] = False
 
 
 # --- Task Schemas ---

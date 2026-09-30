@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy.orm import Session
 import models, schemas
+import assignment_engine
 
 # --- Event CRUD ---
 def get_events(db: Session):
@@ -85,7 +86,10 @@ def check_out_volunteer(db: Session, volunteer_id: int):
 
 # --- Shift & Assignment CRUD ---
 def get_shifts_by_event(db: Session, event_id: int):
-    return db.query(models.Shift).filter(models.Shift.event_id == event_id).all()
+    shifts = db.query(models.Shift).filter(models.Shift.event_id == event_id).all()
+    for s in shifts:
+        s.coverage = assignment_engine.calculate_coverage(s)
+    return shifts
 
 def create_shift(db: Session, shift: schemas.ShiftCreate):
     db_shift = models.Shift(**shift.model_dump())

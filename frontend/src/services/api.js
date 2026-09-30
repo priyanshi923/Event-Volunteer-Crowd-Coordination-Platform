@@ -1,14 +1,31 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+let currentBaseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001/api';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: currentBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 10000,
 });
+
+// Resilient fallback interceptor between port 8001 and 8000
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.code === 'ERR_NETWORK' && !error.config?._retry) {
+      error.config._retry = true;
+      const altUrl = error.config.baseURL.includes('8001')
+        ? error.config.baseURL.replace('8001', '8000')
+        : error.config.baseURL.replace('8000', '8001');
+      error.config.baseURL = altUrl;
+      api.defaults.baseURL = altUrl;
+      return api(error.config);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const eventService = {
   getEvents: () => api.get('/events'),
@@ -36,6 +53,16 @@ export const shiftService = {
     api.delete(`/shifts/assignments/${assignmentId}`),
   getRecommendations: (shiftId) =>
     api.get(`/shifts/${shiftId}/recommendations`),
+  getSuggestions: (shiftId) =>
+    api.get(`/shifts/${shiftId}/suggestions`),
+  autoAssign: (data = {}) =>
+    api.post('/assignments/auto-assign', data),
+  dropout: (shiftId, volunteerId) =>
+    api.post('/assignments/dropout', { shift_id: shiftId, volunteer_id: volunteerId }),
+  rebalance: (data = {}) =>
+    api.post('/assignments/rebalance', data),
+  getAssignments: (params) =>
+    api.get('/assignments', { params }),
 };
 
 export const taskService = {
