@@ -1,4 +1,4 @@
-name: EVCP CI
+name: EVCP CI/CD
 
 on:
   push:
@@ -9,6 +9,9 @@ on:
       - main
 
 jobs:
+  # ============================================================================
+  # Continuous Integration (CI)
+  # ============================================================================
   backend-tests:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -78,3 +81,66 @@ jobs:
 
       - name: Build frontend image
         run: docker build -t evcp-frontend:ci ./frontend
+
+  # ============================================================================
+  # Continuous Deployment (CD)
+  # ============================================================================
+  deploy:
+    name: Continuous Deployment (Docker Compose)
+    runs-on: ubuntu-latest
+    needs:
+      - docker-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+      - name: Build Docker Compose stack
+        run: docker compose build
+
+      - name: Deploy application containers
+        run: docker compose up -d
+
+      - name: Wait for services to become healthy
+        run: |
+          echo "Waiting for backend service health..."
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            status=$(docker inspect --format='{{json .State.Health.Status}}' evcp-backend 2>/dev/null || echo "starting")
+            echo "Current backend health status: $status"
+            if [ "$status" = '"healthy"' ]; then
+              echo "Backend is healthy!"
+              break
+            fi
+            sleep 3
+            timeout=$((timeout - 3))
+          done
+          if [ $timeout -le 0 ]; then
+            echo "Timeout waiting for backend to become healthy."
+            docker compose logs backend
+            exit 1
+          fi
+
+      - name: Health Check Verification
+        run: |
+          echo "Testing Backend /health endpoint..."
+          curl -f http://localhost:8000/health || (echo "Health check failed" && exit 1)
+          echo "Testing Frontend /nginx-health endpoint..."
+          curl -f http://localhost:3000/nginx-health || (echo "Frontend check failed" && exit 1)
+          echo "Testing Prometheus /-/healthy endpoint..."
+          curl -f http://localhost:9090/-/healthy || (echo "Prometheus check failed" && exit 1)
+          echo "Testing Grafana /api/health endpoint..."
+          curl -f http://localhost:3001/api/health || (echo "Grafana check failed" && exit 1)
+
+      - name: Report Deployment Status
+        run: |
+          echo "=== Docker Compose Services ==="
+          docker compose ps
+          echo "=== CD Deployment Succeeded! ==="
