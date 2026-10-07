@@ -1,11 +1,19 @@
 import sys
+import io
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+else:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from fastapi.testclient import TestClient
 from main import app
 
+
 client = TestClient(app)
 
-def run_tests():
+def test_attendance():
     print("Testing backend endpoints using TestClient...")
+    r_seed = client.post("/api/seed?force=true")
+    assert r_seed.status_code == 200, f"Seeding failed: {r_seed.text}"
     
     # 1. Test GET /volunteers
     r = client.get("/volunteers")

@@ -1,4 +1,10 @@
 import sys
+import io
+# Fix Windows cp1252 encoding for Unicode characters in output
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+else:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from fastapi.testclient import TestClient
 from main import app, init_db
 from database import SessionLocal
@@ -12,7 +18,9 @@ def test_phase6():
     print("TESTING PHASE 6: DROPOUT, REPLACEMENT & REBALANCING")
     print("==================================================")
 
-    # 1. Reset / Seed clean state or get shifts
+    # 1. Reset / Seed clean state, then get shifts
+    r_seed = client.post("/api/seed?force=true")
+    assert r_seed.status_code == 200, f"Seeding failed: {r_seed.text}"
     r_shifts = client.get("/api/events/1/shifts")
     assert r_shifts.status_code == 200, f"Failed getting shifts: {r_shifts.text}"
     shifts = r_shifts.json()

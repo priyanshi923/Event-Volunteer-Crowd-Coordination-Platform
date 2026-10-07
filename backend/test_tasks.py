@@ -1,13 +1,19 @@
 import sys
+# Standardize UTF-8 stdout so checkmarks print on Windows cp1252 consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
 
-def run_task_tests():
+def test_tasks():
     print("=" * 60)
     print("RUNNING LIVE TASK BOARD COMPREHENSIVE TESTS")
     print("=" * 60)
+
+    r_seed = client.post("/api/seed?force=true")
+    assert r_seed.status_code == 200, f"Seeding failed: {r_seed.text}"
 
     # 1. Test GET /tasks
     r = client.get("/tasks")
@@ -150,4 +156,4 @@ def run_task_tests():
     print("=" * 60)
 
 if __name__ == "__main__":
-    run_task_tests()
+    test_tasks()

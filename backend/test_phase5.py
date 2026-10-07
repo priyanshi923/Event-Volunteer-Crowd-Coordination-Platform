@@ -1,4 +1,7 @@
 import sys
+# Standardize UTF-8 stdout so checkmarks print on Windows cp1252 consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from fastapi.testclient import TestClient
 from main import app, init_db
 from database import SessionLocal
@@ -9,6 +12,8 @@ def test_phase5():
     client = TestClient(app)
 
     print("=== Testing Phase 5: Issues, Escalations & Announcements ===")
+    r_seed = client.post("/api/seed?force=true")
+    assert r_seed.status_code == 200, f"Seeding failed: {r_seed.text}"
 
     # 1. Test Coordinator Routing Rules
     routing_cases = [

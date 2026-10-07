@@ -1,23 +1,158 @@
 @import "tailwindcss";
 
+/*
+  Neo-brutalist design system: warm paper background, ink-black 2px outlines,
+  hard offset shadows (no blur), flat saturated accents and a bold grotesk.
+*/
+@theme {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-ink: #111111;
+  --color-paper: #fff6e5;
+  --color-brand-yellow: #ffd23f;
+  --color-brand-pink: #ff8fab;
+  --color-brand-blue: #74b9ff;
+  --color-brand-green: #4ade80;
+  --color-brand-red: #ff6b6b;
+  --color-brand-orange: #ffa94d;
+  --color-brand-violet: #b197fc;
+
+  --shadow-brutal-sm: 2px 2px 0 0 #111111;
+  --shadow-brutal: 4px 4px 0 0 #111111;
+  --shadow-brutal-lg: 6px 6px 0 0 #111111;
+  --shadow-brutal-xl: 8px 8px 0 0 #111111;
+}
+
 @layer base {
+  html {
+    color-scheme: light;
+    scrollbar-gutter: stable;
+  }
   body {
-    @apply bg-slate-950 text-slate-100 font-sans antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
+    @apply bg-paper text-ink antialiased min-h-screen text-sm font-sans;
+  }
+  ::selection {
+    @apply bg-brand-yellow text-ink;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ink;
   }
 }
 
-/* Custom scrollbars */
+@layer components {
+  /* Buttons: outlined, hard shadow, press-in on click */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-md border-2 border-ink text-[13px] font-bold whitespace-nowrap cursor-pointer select-none
+      shadow-brutal-sm transition-[transform,box-shadow] duration-100
+      hover:-translate-x-px hover:-translate-y-px hover:shadow-brutal
+      active:translate-x-[2px] active:translate-y-[2px] active:shadow-none
+      disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-none;
+  }
+  .btn-sm {
+    @apply h-7 px-2.5 text-xs;
+  }
+  .btn-primary {
+    @apply bg-brand-yellow text-ink;
+  }
+  .btn-secondary {
+    @apply bg-white text-ink;
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-ink shadow-none
+      hover:translate-x-0 hover:translate-y-0 hover:shadow-none hover:bg-ink/10
+      active:translate-x-0 active:translate-y-0;
+  }
+  .btn-danger {
+    @apply bg-brand-red text-ink;
+  }
+
+  /* Form controls */
+  .label {
+    @apply block text-xs font-bold uppercase tracking-wide text-ink mb-1.5;
+  }
+  .input {
+    @apply w-full h-10 rounded-md border-2 border-ink bg-white px-3 text-sm font-medium text-ink placeholder:text-neutral-500 placeholder:font-normal
+      shadow-brutal-sm transition-shadow focus:outline-none focus:shadow-brutal focus:bg-yellow-50;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
+  .input-sm {
+    @apply h-9 text-[13px] px-2.5;
+  }
+
+  /* Small inline labels */
+  .tag {
+    @apply inline-flex items-center gap-1 rounded border-2 border-ink bg-white px-1.5 py-0.5 text-[11px] font-bold text-ink whitespace-nowrap;
+  }
+  .dot {
+    @apply inline-block w-2.5 h-2.5 rounded-full border-2 border-ink shrink-0;
+  }
+
+  /* Layout */
+  .page-header {
+    @apply flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8;
+  }
+  .page-title {
+    @apply text-3xl font-bold text-ink tracking-tight;
+  }
+  .page-subtitle {
+    @apply text-sm font-medium text-neutral-700 mt-1;
+  }
+  .section-title {
+    @apply text-sm font-bold uppercase tracking-wide text-ink;
+  }
+  .panel {
+    @apply rounded-lg border-2 border-ink bg-white shadow-brutal;
+  }
+  .divide-rows > * + * {
+    @apply border-t-2 border-ink;
+  }
+
+  /* Segmented filter control */
+  .segmented {
+    @apply inline-flex items-stretch rounded-md border-2 border-ink bg-white shadow-brutal-sm overflow-hidden;
+  }
+  .segmented > button {
+    @apply h-8 px-3 text-xs font-bold text-ink whitespace-nowrap border-r-2 border-ink last:border-r-0 transition-colors hover:bg-yellow-100;
+  }
+  .segmented > button[aria-pressed="true"] {
+    @apply bg-brand-yellow;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 bg-ink/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto;
+  }
+  .modal {
+    @apply w-full max-w-md rounded-lg border-[3px] border-ink bg-paper p-6 my-8 shadow-brutal-xl;
+  }
+  .modal-title {
+    @apply text-xl font-bold text-ink tracking-tight;
+  }
+
+  .empty {
+    @apply py-10 text-center text-sm font-medium text-neutral-700;
+  }
+
+  /* Hard-shadow card that lifts on hover */
+  .card-lift {
+    @apply rounded-lg border-2 border-ink bg-white shadow-brutal transition-[transform,box-shadow] duration-150
+      hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-brutal-lg;
+  }
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #fff6e5;
+  border-left: 2px solid #111111;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #111111;
+  border: 3px solid #fff6e5;
+  border-radius: 6px;
 }

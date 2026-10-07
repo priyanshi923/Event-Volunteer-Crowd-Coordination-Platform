@@ -3,6 +3,9 @@ End-to-End Final Phase Verification Script for Event Volunteer & Crowd Coordinat
 Tests all 27 steps required in Section 8 of the prompt.
 """
 import sys
+# Standardize UTF-8 stdout so checkmarks print on Windows cp1252 consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import time
 from fastapi.testclient import TestClient
 from main import app
@@ -225,8 +228,8 @@ def run_e2e_test():
     r_vols = client.get("/api/volunteers")
     assert r_vols.status_code == 200
     vols = r_vols.json()
-    # Find a volunteer who is registered (not checked in)
-    reg_vol = next(v for v in vols if v["status"] == "Registered")
+    # Find a volunteer who is available (not checked in)
+    reg_vol = next(v for v in vols if v["status"] == "Available")
     checkin_vid = reg_vol["id"]
     r_cin = client.post(f"/api/volunteers/{checkin_vid}/check-in")
     assert r_cin.status_code == 200
@@ -266,6 +269,10 @@ def run_e2e_test():
     print("\n" + "=" * 65)
     print("ALL 27 END-TO-END DEMO STEPS VERIFIED AND PASSED 100%!")
     print("=" * 65)
+
+def test_e2e_all_steps():
+    """Pytest test case executing all 27 end-to-end verification steps."""
+    run_e2e_test()
 
 if __name__ == "__main__":
     run_e2e_test()

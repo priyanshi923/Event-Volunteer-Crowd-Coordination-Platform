@@ -1,14 +1,5 @@
 import React from 'react';
-import {
-  LayoutDashboard,
-  Calendar,
-  Clock,
-  Users,
-  CheckSquare,
-  AlertTriangle,
-  Radio,
-  RefreshCw
-} from 'lucide-react';
+import { RefreshCw, LogOut } from 'lucide-react';
 
 export default function Navbar({
   activeTab,
@@ -17,103 +8,93 @@ export default function Navbar({
   selectedEventId,
   setSelectedEventId,
   backendConnected,
-  onRefresh
+  onRefresh,
+  onSwitchRole
 }) {
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'events', label: 'Event & Roles', icon: Calendar },
-    { id: 'shifts', label: 'Shift Matching', icon: Clock },
-    { id: 'volunteers', label: 'Volunteers & Check-In', icon: Users },
-    { id: 'tasks', label: 'Task Board', icon: CheckSquare },
-    { id: 'incidents', label: 'Comms & Alerts', icon: AlertTriangle },
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'events', label: 'Events' },
+    { id: 'shifts', label: 'Shifts' },
+    { id: 'volunteers', label: 'Volunteers' },
+    { id: 'tasks', label: 'Tasks' },
+    { id: 'issues', label: 'Issues' },
   ];
 
-  const currentEvent = events.find(e => e.id === Number(selectedEventId));
-
   return (
-    <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Platform Name */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Radio className="w-5 h-5 text-white animate-pulse" />
-            </div>
-            <div>
-              <span className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                CrowdCoord <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">MVP</span>
-              </span>
-              <p className="text-[11px] text-slate-400 hidden sm:block">Event Volunteer & Crowd Coordination</p>
-            </div>
+    <header className="sticky top-0 z-40 bg-paper border-b-[3px] border-ink">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-16 gap-4">
+          <div className="flex items-center gap-6 min-w-0">
+            <span className="shrink-0 rounded-md border-2 border-ink bg-brand-pink px-2 py-1 text-sm font-bold tracking-tight text-ink shadow-brutal-sm -rotate-2">CrowdCoord</span>
+
+            <nav className="hidden md:flex items-center gap-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  id={`nav-tab-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`h-9 px-3 rounded-md border-2 text-[13px] font-bold transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-ink bg-brand-yellow text-ink shadow-brutal-sm'
+                      : 'border-transparent text-ink hover:border-ink hover:bg-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
           </div>
 
-          {/* Event Selector & Backend Status */}
-          <div className="flex items-center space-x-3">
-            {/* Event Dropdown */}
-            <div className="flex items-center bg-slate-800/80 rounded-lg p-1 border border-slate-700">
-              <span className="text-xs text-slate-400 px-2 font-medium hidden md:inline">Event:</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {events && events.length > 0 && (
               <select
                 value={selectedEventId || ''}
                 onChange={(e) => setSelectedEventId(Number(e.target.value))}
-                className="bg-transparent text-sm text-slate-200 font-medium focus:outline-none cursor-pointer pr-2"
+                title="Active event"
+                className="h-9 max-w-[11rem] sm:max-w-[16rem] truncate rounded-md border-2 border-ink bg-white px-2 text-[13px] font-bold text-ink shadow-brutal-sm focus:outline-none"
               >
                 {events.map((ev) => (
-                  <option key={ev.id} value={ev.id} className="bg-slate-800 text-slate-100">
-                    {ev.name.length > 25 ? ev.name.substring(0, 25) + '...' : ev.name}
-                  </option>
+                  <option key={ev.id} value={ev.id}>{ev.name}</option>
                 ))}
               </select>
-            </div>
+            )}
 
-            {/* Refresh Button */}
-            <button
-              onClick={onRefresh}
-              title="Refresh Data"
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
-            >
+            <span
+              className={`dot mx-1.5 ${backendConnected ? 'bg-brand-green' : 'bg-brand-red'}`}
+              title={backendConnected ? 'API connected' : 'API offline'}
+            />
+
+            <button onClick={onRefresh} title="Refresh data" className="btn btn-secondary w-9 px-0">
               <RefreshCw className="w-4 h-4" />
             </button>
 
-            {/* Backend connection pill */}
-            <div
-              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                backendConnected
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  backendConnected ? 'bg-emerald-400 animate-ping' : 'bg-rose-400'
-                }`}
-              />
-              <span className="hidden sm:inline">
-                {backendConnected ? 'API Connected' : 'Offline'}
-              </span>
-            </div>
+            {onSwitchRole && (
+              <button
+                id="coordinator-switch-role-btn"
+                onClick={onSwitchRole}
+                title="Switch role"
+                className="btn btn-secondary px-2.5"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Switch role</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <nav className="flex space-x-1 sm:space-x-2 overflow-x-auto py-2 scrollbar-none border-t border-slate-800/60">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        {/* Mobile tabs */}
+        <nav className="md:hidden flex gap-1 overflow-x-auto pb-2 -mx-1 px-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`h-8 px-2.5 rounded-md border-2 text-xs font-bold whitespace-nowrap ${
+                activeTab === tab.id ? 'border-ink bg-brand-yellow text-ink' : 'border-transparent text-ink'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
       </div>
     </header>
