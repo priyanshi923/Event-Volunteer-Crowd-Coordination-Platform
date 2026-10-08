@@ -105,28 +105,10 @@ jobs:
       - name: Build Docker Compose stack
         run: docker compose build
 
-      - name: Deploy application containers
-        run: docker compose up -d
-
-      - name: Wait for services to become healthy
-        run: |
-          echo "Waiting for backend service health..."
-          timeout=60
-          while [ $timeout -gt 0 ]; do
-            status=$(docker inspect --format='{{json .State.Health.Status}}' evcp-backend 2>/dev/null || echo "starting")
-            echo "Current backend health status: $status"
-            if [ "$status" = '"healthy"' ]; then
-              echo "Backend is healthy!"
-              break
-            fi
-            sleep 3
-            timeout=$((timeout - 3))
-          done
-          if [ $timeout -le 0 ]; then
-            echo "Timeout waiting for backend to become healthy."
-            docker compose logs backend
-            exit 1
-          fi
+      # --wait blocks until every service's healthcheck passes (backend, frontend,
+      # Prometheus and Grafana), not just the backend; Grafana alone can take ~20s.
+      - name: Deploy application containers and wait for health
+        run: docker compose up -d --wait --wait-timeout 180
 
       - name: Health Check Verification
         run: |
@@ -138,6 +120,12 @@ jobs:
           curl -f http://localhost:9090/-/healthy || (echo "Prometheus check failed" && exit 1)
           echo "Testing Grafana /api/health endpoint..."
           curl -f http://localhost:3001/api/health || (echo "Grafana check failed" && exit 1)
+
+      - name: Dump service status and logs on failure
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail 200
 
       - name: Report Deployment Status
         run: |
