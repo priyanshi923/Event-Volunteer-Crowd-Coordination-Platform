@@ -148,4 +148,9 @@ export const jiraService = {
   syncTask: (taskId) => api.post(`/tasks/${taskId}/jira/sync`),
 };
 
+export const githubService = {
+  getStatus: () => api.get('/github/status'),
+  sendReport: () => api.post('/github/report'),
+};
+
 export default api;
