@@ -49,6 +49,12 @@ services:
       JIRA_USER_EMAIL: "${JIRA_USER_EMAIL}"
       JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
       JIRA_PROJECT_KEY: "${JIRA_PROJECT_KEY}"
+      GITHUB_REPOSITORY: "${GITHUB_REPOSITORY:-priyanshi923/Event-Volunteer-Crowd-Coordination-Platform}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      GITHUB_WORKFLOW_REF: "${GITHUB_WORKFLOW_REF:-main}"
+      GITHUB_REPORT_ON_STARTUP: "${GITHUB_REPORT_ON_STARTUP:-true}"
+      GITHUB_REPORT_INTERVAL_MIN: "${GITHUB_REPORT_INTERVAL_MIN:-0}"
+      EVCP_INSTANCE_NAME: "${EVCP_INSTANCE_NAME:-docker}"
     volumes:
       - evcp_db_data:/app/data
       - evcp_uploads_data:/app/uploads
