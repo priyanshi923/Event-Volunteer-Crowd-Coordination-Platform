@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 import models, schemas
 import assignment_engine
+from jira_service import jira_service
 
 # --- Event CRUD ---
 ACTIVE_ASSIGNMENT_STATUSES = ("ASSIGNED", "CHECKED_IN")
@@ -818,6 +819,11 @@ def format_task(task: models.Task):
         "status": normalized_status,
         "assigned_volunteer_id": task.assigned_volunteer_id,
         "assigned_volunteer": assigned_vol,
+        "jira_issue_key": task.jira_issue_key,
+        "jira_issue_id": task.jira_issue_id,
+        "jira_synced_at": task.jira_synced_at,
+        "jira_issue_url": f"{jira_service.base_url}/browse/{task.jira_issue_key}" if (task.jira_issue_key and jira_service.base_url) else None,
+        "jira_sync_status": getattr(task, "_jira_sync_status", None),
         "created_at": task.created_at,
         "updated_at": task.updated_at,
         "created_time": c_time,
@@ -878,6 +884,9 @@ def create_task(db: Session, task: schemas.TaskCreate):
         priority=priority,
         status=status,
         assigned_volunteer_id=task.assigned_volunteer_id,
+        jira_issue_key=getattr(task, "jira_issue_key", None),
+        jira_issue_id=getattr(task, "jira_issue_id", None),
+        jira_synced_at=getattr(task, "jira_synced_at", None),
         created_at=now,
         updated_at=now
     )
@@ -934,6 +943,12 @@ def update_task(db: Session, task_id: int, update_data: schemas.TaskUpdate):
         db_task.description = data["description"]
     if "zone" in data and data["zone"] is not None:
         db_task.zone = data["zone"]
+    if "jira_issue_key" in data and data["jira_issue_key"] is not None:
+        db_task.jira_issue_key = data["jira_issue_key"]
+    if "jira_issue_id" in data and data["jira_issue_id"] is not None:
+        db_task.jira_issue_id = data["jira_issue_id"]
+    if "jira_synced_at" in data and data["jira_synced_at"] is not None:
+        db_task.jira_synced_at = data["jira_synced_at"]
 
     db_task.updated_at = datetime.utcnow()
     db.commit()

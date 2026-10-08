@@ -45,6 +45,10 @@ services:
       PORT: "8000"
       DATABASE_URL: "${DATABASE_URL:-sqlite:////app/data/event_platform.db}"
       CORS_ORIGINS: "${CORS_ORIGINS:-*}"
+      JIRA_BASE_URL: "${JIRA_BASE_URL}"
+      JIRA_USER_EMAIL: "${JIRA_USER_EMAIL}"
+      JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
+      JIRA_PROJECT_KEY: "${JIRA_PROJECT_KEY}"
     volumes:
       - evcp_db_data:/app/data
       - evcp_uploads_data:/app/uploads

@@ -108,6 +108,7 @@ export const taskService = {
   createTask: (data) => api.post('/tasks', data),
   updateTask: (id, data) => api.put(`/tasks/${id}`, data),
   deleteTask: (id) => api.delete(`/tasks/${id}`),
+  syncWithJira: (id) => api.post(`/tasks/${id}/jira/sync`),
 };
 
 export const issueService = {
@@ -139,6 +140,12 @@ export const commsService = {
 
 export const dashboardService = {
   getMetrics: (eventId) => api.get('/dashboard/metrics', { params: { event_id: eventId } }),
+};
+
+export const jiraService = {
+  getStatus: () => api.get('/jira/status'),
+  syncAll: () => api.post('/jira/sync'),
+  syncTask: (taskId) => api.post(`/tasks/${taskId}/jira/sync`),
 };
 
 export default api;

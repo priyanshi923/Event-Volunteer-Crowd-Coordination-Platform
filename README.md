@@ -92,3 +92,87 @@ npm install
 npm run dev
 ```
 Web App will be available at: `http://localhost:5173`
+
+---
+
+## 🔗 Live Jira Integration
+
+EVCP features a **real, two-way, live integration** with Atlassian Jira Cloud using the official Jira REST API v3. Tasks managed in the EVCP Kanban board communicate directly with the real Jira project without simulation or fake mock endpoints.
+
+### 1. Jira Project & Workflow
+- **Project Name**: `EVCP — Event Volunteer & Crowd Coordination Platform`
+- **Project Key**: `EVCP`
+- **Workflow Statuses**:
+  - `To Do` ↔ EVCP `OPEN`
+  - `In Progress` ↔ EVCP `IN_PROGRESS`
+  - `Done` ↔ EVCP `RESOLVED`
+
+### 2. Required Environment Variables
+Set the following variables in your root `.env` file (or provide them via your execution environment):
+
+```env
+# Jira Cloud Integration
+JIRA_BASE_URL=https://your-domain.atlassian.net
+JIRA_USER_EMAIL=your-email@example.com
+JIRA_API_TOKEN=your_jira_api_token
+JIRA_PROJECT_KEY=EVCP
+```
+> **Security Note**: Never commit your real `.env` file or API token to version control. The `.env` file is protected in `.gitignore`.
+
+### 3. How to Create & Configure Jira API Credentials
+1. Log in to your Atlassian account at [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
+2. Navigate to **Security** → **API tokens**.
+3. Click **Create API token**, label it `EVCP-Integration`, and copy the generated token string.
+4. Paste the token into `JIRA_API_TOKEN` in your `.env` file alongside your account email and domain URL.
+
+### 4. How Issue Mapping Works
+- Each EVCP task stores its persistent mapping in the local database schema:
+  - `jira_issue_key`: e.g. `EVCP-36`
+  - `jira_issue_id`: Unique numerical Jira issue ID
+  - `jira_synced_at`: UTC timestamp of the latest successful sync
+- Duplicate prevention: Repeated syncs will never create duplicate Jira tickets. Existing linked keys are detected and updated in-place.
+- Issue URL generation: The API dynamically returns direct links (`https://<domain>.atlassian.net/browse/EVCP-XX`) for seamless 1-click inspection.
+
+### 5. EVCP → Jira Synchronization
+- **New Task Creation**: When creating a task in EVCP with Jira enabled, the backend automatically issues a `POST /rest/api/3/issue` call to create a real Jira issue in project `EVCP` and persists the generated key.
+- **Status Updates**: When moving a task from `To Do` → `In Progress` or `In Progress` → `Done`, EVCP dynamically queries available workflow transitions for that issue (`GET /rest/api/3/issue/{key}/transitions`) and executes the corresponding transition (`POST /rest/api/3/issue/{key}/transitions`).
+- **User Feedback**: The UI immediately displays a confirmation toast:
+  - `Status changed to IN_PROGRESS. ✓ Jira EVCP-XX synchronized.`
+
+### 6. Jira → EVCP Synchronization
+When changes occur directly on the real Jira board (e.g. dragging a card to In Progress or Done):
+- **On-Demand Card Sync**: Click the **Sync** button on any linked task card to immediately fetch the issue state from Jira Cloud (`GET /rest/api/3/issue/{key}`) and reconcile local status.
+- **Global Board Sync**: Click the **Sync Jira** button in the header toolbar to scan all linked tasks and pull latest remote changes.
+- **Automated Background Poller**: The backend background checker periodically polls linked Jira issues and syncs external status modifications.
+
+### 7. Jira Cloud Webhook Setup
+To enable instantaneous push updates from Jira Cloud to EVCP:
+1. In Jira, navigate to **Settings** → **System** → **Webhooks**.
+2. Click **Create a Webhook**.
+3. Enter the Webhook URL: `https://<your-public-domain-or-tunnel>/api/jira/webhook`.
+4. Under **Issue related events**, select **Issue** → **Updated**.
+5. Save the webhook. Incoming webhooks parse the issue key and status change, automatically update the local database, and safeguard against recursive loop calls.
+
+### 8. Local Development & Testing
+Run unit and integration tests with pytest:
+```bash
+cd backend
+python -m pytest test_jira.py -v
+```
+
+Verify Jira connectivity via health endpoint:
+```bash
+curl http://localhost:8000/api/jira/status
+```
+
+### 9. Docker Deployment
+Start the entire integrated stack including backend, frontend, Prometheus, and Grafana:
+```bash
+docker compose up --build -d
+```
+All Jira configuration parameters from `.env` are automatically forwarded into the backend container.
+
+### 10. Troubleshooting
+- **Jira Status shows `connected: false`**: Verify `JIRA_BASE_URL` contains the full `https://` prefix, your user email is valid, and the API token has not expired.
+- **Transition Not Found**: Ensure the target issue is in a workflow status that permits moving to the requested column. Transitions are evaluated dynamically per Jira issue state.
+- **410 Gone / Deprecated API Errors**: Jira Cloud v3 requires `/rest/api/3/search/jql` instead of legacy search endpoints. The EVCP `jira_service` uses official v3 endpoints.

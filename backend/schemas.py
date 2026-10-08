@@ -378,6 +378,9 @@ class TaskBase(BaseModel):
     priority: str = "MEDIUM"  # LOW, MEDIUM, HIGH, CRITICAL
     status: Optional[str] = "OPEN"  # OPEN, IN_PROGRESS, RESOLVED
     assigned_volunteer_id: Optional[int] = None
+    jira_issue_key: Optional[str] = None
+    jira_issue_id: Optional[str] = None
+    jira_synced_at: Optional[datetime] = None
 
 class TaskCreate(BaseModel):
     title: str
@@ -387,6 +390,9 @@ class TaskCreate(BaseModel):
     status: Optional[str] = "OPEN"
     assigned_volunteer_id: Optional[int] = None
     event_id: Optional[int] = None
+    jira_issue_key: Optional[str] = None
+    jira_issue_id: Optional[str] = None
+    jira_synced_at: Optional[datetime] = None
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -395,6 +401,9 @@ class TaskUpdate(BaseModel):
     priority: Optional[str] = None
     status: Optional[str] = None
     assigned_volunteer_id: Optional[int] = None
+    jira_issue_key: Optional[str] = None
+    jira_issue_id: Optional[str] = None
+    jira_synced_at: Optional[datetime] = None
 
 class TaskOut(BaseModel):
     id: int
@@ -406,6 +415,11 @@ class TaskOut(BaseModel):
     status: str
     assigned_volunteer_id: Optional[int] = None
     assigned_volunteer: Optional[VolunteerOut] = None
+    jira_issue_key: Optional[str] = None
+    jira_issue_id: Optional[str] = None
+    jira_synced_at: Optional[datetime] = None
+    jira_issue_url: Optional[str] = None
+    jira_sync_status: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     created_time: Optional[str] = None

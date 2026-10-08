@@ -183,6 +183,9 @@ class Task(Base):
     priority = Column(String(50), default="MEDIUM")  # LOW, MEDIUM, HIGH, CRITICAL
     status = Column(String(50), default="OPEN")  # OPEN, IN_PROGRESS, RESOLVED
     assigned_volunteer_id = Column(Integer, ForeignKey("volunteers.id"), nullable=True)
+    jira_issue_key = Column(String(50), nullable=True)
+    jira_issue_id = Column(String(50), nullable=True)
+    jira_synced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

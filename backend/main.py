@@ -4,6 +4,14 @@ import sys
 from contextlib import asynccontextmanager
 from typing import List, Optional
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Search for .env files automatically
+load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, Response, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +22,7 @@ from prometheus_client import Gauge, Counter, generate_latest, CONTENT_TYPE_LATE
 from database import engine, Base, get_db, init_db, SessionLocal
 import models, schemas, crud
 import assignment_engine
+from jira_service import jira_service
 
 # Standardize UTF-8 stdout so log lines with symbols don't crash cp1252 Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -22,16 +31,42 @@ if hasattr(sys.stdout, "reconfigure"):
 # Initialize database tables and run lightweight migrations
 init_db()
 
+def sync_jira_tasks_from_cloud(db: Session):
+    """Background helper to pull latest status changes from Jira Cloud for linked tasks."""
+    if not jira_service.enabled:
+        return
+    linked_tasks = db.query(models.Task).filter(models.Task.jira_issue_key.isnot(None)).all()
+    for task in linked_tasks:
+        try:
+            issue_data = jira_service.get_issue(task.jira_issue_key)
+            if not issue_data:
+                continue
+            status_name = issue_data.get("fields", {}).get("status", {}).get("name", "")
+            mapped_status = jira_service.map_jira_to_evcp_status(status_name)
+            if task.status != mapped_status:
+                old_status = task.status
+                task.status = mapped_status
+                task.jira_synced_at = datetime.utcnow()
+                db.commit()
+                print(f"[Jira Sync] Synced task #{task.id} ({task.jira_issue_key}) from {old_status} to {mapped_status} (Jira: {status_name})")
+        except Exception as e:
+            pass
+
 async def run_periodic_checker():
     """Runs approximately every 10 seconds in background using a fresh SQLAlchemy session."""
+    counter = 0
     while True:
         try:
             await asyncio.sleep(10)
+            counter += 1
             def run_sync_checks():
                 db = SessionLocal()
                 try:
                     crud.check_issue_escalations(db)
                     crud.check_no_shows(db)
+                    # Every 20 seconds, poll linked Jira issues for status updates
+                    if counter % 2 == 0 and jira_service.enabled:
+                        sync_jira_tasks_from_cloud(db)
                 except Exception as e:
                     print(f"Periodic check error: {e}")
                 finally:
@@ -628,7 +663,34 @@ def read_event_tasks(
 @app.post("/api/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
 def create_new_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     try:
-        return crud.create_task(db, task)
+        new_task = crud.create_task(db, task)
+        # Create Jira issue if enabled
+        if jira_service.enabled:
+            try:
+                jira_res = jira_service.create_issue(
+                    title=new_task["title"],
+                    description=new_task["description"],
+                    priority=new_task["priority"]
+                )
+                if jira_res and "key" in jira_res and "id" in jira_res:
+                    update_data = schemas.TaskUpdate(
+                        jira_issue_key=jira_res["key"],
+                        jira_issue_id=jira_res["id"],
+                        jira_synced_at=datetime.utcnow()
+                    )
+                    new_task = crud.update_task(db, new_task["id"], update_data)
+                    new_task["jira_sync_status"] = "synced"
+                    # If initial status is not OPEN (e.g. IN_PROGRESS), transition Jira issue
+                    if new_task["status"] != "OPEN":
+                        jira_service.transition_issue(jira_res["key"], new_task["status"])
+                else:
+                    new_task["jira_sync_status"] = "failed"
+            except Exception as ex:
+                print(f"Jira issue creation error: {ex}")
+                new_task["jira_sync_status"] = "failed"
+        else:
+            new_task["jira_sync_status"] = "disabled"
+        return new_task
     except ValueError as e:
         err_msg = str(e)
         if "not found" in err_msg.lower():
@@ -639,15 +701,224 @@ def create_new_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
 @app.put("/api/tasks/{task_id}", response_model=schemas.TaskOut)
 def update_task_details(task_id: int, task_data: schemas.TaskUpdate, db: Session = Depends(get_db)):
     try:
+        existing_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if not existing_task:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+            
+        status_changed = bool(task_data.status and task_data.status != existing_task.status)
+        
         updated = crud.update_task(db, task_id, task_data)
         if not updated:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        
+        # Sync to Jira if status changed and it's linked
+        if updated.get("jira_issue_key") and jira_service.enabled:
+            if status_changed:
+                trans_ok = jira_service.transition_issue(updated["jira_issue_key"], updated["status"])
+                if trans_ok:
+                    crud.update_task(db, task_id, schemas.TaskUpdate(jira_synced_at=datetime.utcnow()))
+                    updated["jira_sync_status"] = "synced"
+                else:
+                    updated["jira_sync_status"] = "failed"
+            else:
+                updated["jira_sync_status"] = "unchanged"
+        else:
+            updated["jira_sync_status"] = "not_linked" if not updated.get("jira_issue_key") else "disabled"
+            
         return updated
     except ValueError as e:
         err_msg = str(e)
         if "not found" in err_msg.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+
+@app.post("/tasks/{task_id}/jira/sync")
+@app.post("/api/tasks/{task_id}/jira/sync")
+def sync_task_with_jira(task_id: int, db: Session = Depends(get_db)):
+    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if not jira_service.enabled:
+        raise HTTPException(status_code=400, detail="Jira integration is not configured")
+
+    if not db_task.jira_issue_key:
+        # Create it in Jira
+        jira_res = jira_service.create_issue(
+            title=db_task.title,
+            description=db_task.description or "",
+            priority=db_task.priority or "MEDIUM"
+        )
+        if jira_res and "key" in jira_res and "id" in jira_res:
+            db_task.jira_issue_key = jira_res["key"]
+            db_task.jira_issue_id = jira_res["id"]
+            db_task.jira_synced_at = datetime.utcnow()
+            db.commit()
+            db.refresh(db_task)
+            
+            # Match current status if not OPEN
+            if db_task.status != "OPEN":
+                jira_service.transition_issue(jira_res["key"], db_task.status)
+                
+            return {
+                "status": "created",
+                "message": f"Created Jira issue {jira_res['key']}",
+                "jira_issue_key": jira_res["key"],
+                "jira_issue_url": jira_service.get_issue_url(jira_res["key"]),
+                "task": crud.format_task(db_task)
+            }
+        raise HTTPException(status_code=500, detail="Failed to create Jira issue")
+    else:
+        # Check current status in Jira
+        jira_issue = jira_service.get_issue(db_task.jira_issue_key)
+        if jira_issue:
+            jira_status_name = jira_issue.get("fields", {}).get("status", {}).get("name", "")
+            mapped_status = jira_service.map_jira_to_evcp_status(jira_status_name)
+            
+            if db_task.status != mapped_status:
+                old_status = db_task.status
+                db_task.status = mapped_status
+                db_task.jira_synced_at = datetime.utcnow()
+                db.commit()
+                db.refresh(db_task)
+                return {
+                    "status": "synchronized_from_jira",
+                    "message": f"Updated EVCP task status from {old_status} to {mapped_status} (Jira: {jira_status_name})",
+                    "jira_issue_key": db_task.jira_issue_key,
+                    "new_status": mapped_status,
+                    "jira_issue_url": jira_service.get_issue_url(db_task.jira_issue_key),
+                    "task": crud.format_task(db_task)
+                }
+            else:
+                # In sync, push status to Jira to verify
+                jira_service.transition_issue(db_task.jira_issue_key, db_task.status)
+                db_task.jira_synced_at = datetime.utcnow()
+                db.commit()
+                db.refresh(db_task)
+                return {
+                    "status": "in_sync",
+                    "message": f"Task and Jira issue {db_task.jira_issue_key} are synchronized ({db_task.status})",
+                    "jira_issue_key": db_task.jira_issue_key,
+                    "jira_issue_url": jira_service.get_issue_url(db_task.jira_issue_key),
+                    "task": crud.format_task(db_task)
+                }
+        else:
+            success = jira_service.transition_issue(db_task.jira_issue_key, db_task.status)
+            if success:
+                db_task.jira_synced_at = datetime.utcnow()
+                db.commit()
+                return {
+                    "status": "synchronized_to_jira",
+                    "message": f"Pushed status {db_task.status} to Jira {db_task.jira_issue_key}",
+                    "jira_issue_key": db_task.jira_issue_key,
+                    "jira_issue_url": jira_service.get_issue_url(db_task.jira_issue_key),
+                    "task": crud.format_task(db_task)
+                }
+            raise HTTPException(status_code=500, detail=f"Failed to access Jira issue {db_task.jira_issue_key}")
+
+@app.post("/jira/sync")
+@app.post("/api/jira/sync")
+def sync_all_jira_tasks(db: Session = Depends(get_db)):
+    if not jira_service.enabled:
+        raise HTTPException(status_code=400, detail="Jira integration is not configured")
+        
+    linked_tasks = db.query(models.Task).filter(models.Task.jira_issue_key.isnot(None)).all()
+    results = []
+    updated_count = 0
+    
+    for task in linked_tasks:
+        try:
+            issue_data = jira_service.get_issue(task.jira_issue_key)
+            if not issue_data:
+                results.append({"task_id": task.id, "key": task.jira_issue_key, "status": "not_found"})
+                continue
+            jira_status_name = issue_data.get("fields", {}).get("status", {}).get("name", "")
+            mapped_status = jira_service.map_jira_to_evcp_status(jira_status_name)
+            if task.status != mapped_status:
+                old = task.status
+                task.status = mapped_status
+                task.jira_synced_at = datetime.utcnow()
+                db.commit()
+                updated_count += 1
+                results.append({"task_id": task.id, "key": task.jira_issue_key, "status": "updated", "from": old, "to": mapped_status})
+            else:
+                results.append({"task_id": task.id, "key": task.jira_issue_key, "status": "in_sync", "current": task.status})
+        except Exception as e:
+            results.append({"task_id": task.id, "key": task.jira_issue_key, "status": "error", "error": str(e)})
+            
+    return {
+        "total_linked": len(linked_tasks),
+        "updated": updated_count,
+        "results": results
+    }
+
+@app.post("/jira/webhook")
+@app.post("/api/jira/webhook")
+async def jira_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+        
+    issue_data = payload.get("issue", {})
+    issue_key = issue_data.get("key")
+    issue_id = issue_data.get("id")
+    
+    if not issue_key and not issue_id:
+        return {"status": "ignored", "reason": "No issue key or ID in payload"}
+        
+    status_name = issue_data.get("fields", {}).get("status", {}).get("name", "")
+    if not status_name:
+        changelog = payload.get("changelog", {})
+        for item in changelog.get("items", []):
+            if item.get("field") == "status":
+                status_name = item.get("toString", "")
+                break
+                
+    if not status_name:
+        return {"status": "ignored", "reason": "No status found in webhook payload"}
+        
+    evcp_status = jira_service.map_jira_to_evcp_status(status_name)
+    
+    db_task = None
+    if issue_key:
+        db_task = db.query(models.Task).filter(models.Task.jira_issue_key == issue_key).first()
+    if not db_task and issue_id:
+        db_task = db.query(models.Task).filter(models.Task.jira_issue_id == str(issue_id)).first()
+        
+    if not db_task:
+        return {"status": "ignored", "reason": f"No linked EVCP task found for {issue_key or issue_id}"}
+        
+    if db_task.status == evcp_status:
+        return {"status": "unchanged", "reason": f"Task already in status {evcp_status}"}
+        
+    old_status = db_task.status
+    db_task.status = evcp_status
+    db_task.jira_synced_at = datetime.utcnow()
+    db.commit()
+    
+    return {
+        "status": "synchronized",
+        "task_id": db_task.id,
+        "jira_issue_key": db_task.jira_issue_key,
+        "old_status": old_status,
+        "new_status": evcp_status
+    }
+
+@app.get("/jira/status")
+@app.get("/api/jira/status")
+def get_jira_status():
+    is_connected = False
+    if jira_service.enabled:
+        is_connected = jira_service.verify_access()
+        
+    return {
+        "connected": is_connected,
+        "enabled": jira_service.enabled,
+        "projectKey": jira_service.project_key,
+        "baseUrl": jira_service.base_url,
+        "userEmail": jira_service.email
+    }
 
 @app.delete("/tasks/{task_id}")
 @app.delete("/api/tasks/{task_id}")

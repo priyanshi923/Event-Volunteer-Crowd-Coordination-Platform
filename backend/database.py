@@ -107,6 +107,18 @@ def init_db():
                 conn.exec_driver_sql("UPDATE issues SET original_assigned_coordinator = assigned_coordinator WHERE original_assigned_coordinator IS NULL OR original_assigned_coordinator = ''")
                 conn.commit()
 
+            # Add missing columns to tasks
+            cursor_tasks = conn.exec_driver_sql("PRAGMA table_info(tasks)")
+            task_cols = [row[1] for row in cursor_tasks.fetchall()]
+            if task_cols:
+                if "jira_issue_key" not in task_cols:
+                    conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN jira_issue_key VARCHAR(50) NULL")
+                if "jira_issue_id" not in task_cols:
+                    conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN jira_issue_id VARCHAR(50) NULL")
+                if "jira_synced_at" not in task_cols:
+                    conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN jira_synced_at DATETIME NULL")
+                conn.commit()
+
             # Normalize legacy task statuses to OPEN, IN_PROGRESS, RESOLVED
             conn.exec_driver_sql("UPDATE tasks SET status = 'OPEN' WHERE status IN ('todo', 'open')")
             conn.exec_driver_sql("UPDATE tasks SET status = 'IN_PROGRESS' WHERE status = 'in_progress'")
