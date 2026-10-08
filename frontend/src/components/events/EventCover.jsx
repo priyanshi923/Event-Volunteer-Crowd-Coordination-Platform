@@ -35,7 +35,7 @@ export default function EventCover({ event, className = '', imgClassName = '', s
       style={{ backgroundImage: 'radial-gradient(#11111122 1.5px, transparent 1.5px)', backgroundSize: '14px 14px' }}
     >
       {showInitial && (
-        <span className="text-5xl font-bold text-ink select-none">{seed.charAt(0).toUpperCase()}</span>
+        <span className="text-5xl font-bold text-slate-700 select-none">{seed.charAt(0).toUpperCase()}</span>
       )}
     </div>
   );

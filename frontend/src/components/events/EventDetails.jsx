@@ -19,7 +19,7 @@ function Fact({ label, children }) {
   return (
     <div>
       <dt className="text-xs text-neutral-600">{label}</dt>
-      <dd className="mt-0.5 text-[13px] text-ink">{children}</dd>
+      <dd className="mt-0.5 text-[13px] text-slate-700">{children}</dd>
     </div>
   );
 }
@@ -71,9 +71,9 @@ export default function EventDetails({ eventId, onBack, onManage, onEventSaved }
       </button>
 
       {/* Cover */}
-      <section className="relative overflow-hidden rounded-lg border-[3px] border-ink shadow-brutal-lg h-60 sm:h-80 flex">
+      <section className="relative overflow-hidden rounded-2xl border-2 border-white/80 shadow-brutal-lg h-60 sm:h-80 flex">
         <div className="absolute inset-0"><EventCover event={event} showInitial={false} /></div>
-        <div className="relative self-end mt-auto m-3 sm:m-5 rounded-lg border-2 border-ink bg-white px-4 py-3 sm:px-5 sm:py-4 shadow-brutal max-w-[calc(100%-1.5rem)]">
+        <div className="relative self-end mt-auto m-3 sm:m-5 rounded-2xl border-2 border-white/80 bg-white px-4 py-3 sm:px-5 sm:py-4 shadow-brutal max-w-[calc(100%-1.5rem)]">
           <div className="flex flex-wrap gap-1.5">
             <span className={`tag ${STATUS_BADGE[timing]}`}>{STATUS_LABEL[timing]}</span>
             {event.category && <span className="tag">{event.category}</span>}
@@ -122,7 +122,7 @@ export default function EventDetails({ eventId, onBack, onManage, onEventSaved }
             {event.shifts.length === 0 ? (
               <p className="text-[13px] text-neutral-600">
                 No shifts yet.{' '}
-                <button onClick={() => onManage('shifts', event.id)} className="font-bold text-ink underline underline-offset-2 hover:bg-brand-yellow">
+                <button onClick={() => onManage('shifts', event.id)} className="font-bold text-slate-700 underline underline-offset-2 hover:bg-brand-yellow">
                   Create shifts
                 </button>{' '}
                 with required skills and headcount.
@@ -132,7 +132,7 @@ export default function EventDetails({ eventId, onBack, onManage, onEventSaved }
                 {event.shifts.map((s) => (
                   <li key={s.id} className="px-4 py-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[13px] text-ink">{s.title}</p>
+                      <p className="text-[13px] text-slate-700">{s.title}</p>
                       <p className="text-xs text-neutral-600 mt-0.5">
                         {[s.date, s.start_time && `${s.start_time}–${s.end_time}`, s.zone, s.role_name, s.required_skill].filter(Boolean).join(' · ')}
                       </p>
@@ -157,7 +157,7 @@ export default function EventDetails({ eventId, onBack, onManage, onEventSaved }
                 {event.volunteers.map((v) => (
                   <li key={v.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4">
                     <div className="min-w-0">
-                      <p className="text-[13px] text-ink">{v.name}</p>
+                      <p className="text-[13px] text-slate-700">{v.name}</p>
                       <p className="text-xs text-neutral-600 truncate">{v.skills || 'No listed skills'}</p>
                     </div>
                     <p className="text-xs text-neutral-700 sm:text-right">

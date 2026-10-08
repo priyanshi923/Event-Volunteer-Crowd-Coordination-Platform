@@ -83,7 +83,7 @@ export default function ZoneManager({ eventId, zones, usedZones = [], onChange }
                 </>
               ) : (
                 <>
-                  <span className="text-[13px] text-ink">{zone.name}</span>
+                  <span className="text-[13px] text-slate-700">{zone.name}</span>
                   <span className="flex gap-0.5">
                     <button
                       onClick={() => { setEditingId(zone.id); setEditName(zone.name); setConfirmDeleteId(null); }}
@@ -109,7 +109,7 @@ export default function ZoneManager({ eventId, zones, usedZones = [], onChange }
       {undefinedZones.length > 0 && (
         <p className="mb-3 text-xs text-neutral-600">
           Used by shifts but not defined: {undefinedZones.join(', ')}.{' '}
-          <button onClick={adoptZones} disabled={busy} className="font-bold text-ink underline underline-offset-2 hover:bg-brand-yellow">
+          <button onClick={adoptZones} disabled={busy} className="font-bold text-slate-700 underline underline-offset-2 hover:bg-brand-yellow">
             Add {undefinedZones.length === 1 ? 'it' : 'them'}
           </button>
         </p>

@@ -21,11 +21,11 @@ export default function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-paper border-b-[3px] border-ink">
+    <header className="sticky top-0 z-40 bg-transparent border-b-[3px] border-white/60">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16 gap-4">
           <div className="flex items-center gap-6 min-w-0">
-            <span className="shrink-0 rounded-md border-2 border-ink bg-brand-pink px-2 py-1 text-sm font-bold tracking-tight text-ink shadow-brutal-sm -rotate-2">CrowdCoord</span>
+            <span className="shrink-0 rounded-xl border-2 border-white/80 bg-brand-pink px-2 py-1 text-sm font-bold tracking-tight text-slate-700 shadow-brutal-sm -rotate-2">CrowdCoord</span>
 
             <nav className="hidden md:flex items-center gap-1">
               {tabs.map((tab) => (
@@ -33,10 +33,10 @@ export default function Navbar({
                   key={tab.id}
                   id={`nav-tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`h-9 px-3 rounded-md border-2 text-[13px] font-bold transition-colors ${
+                  className={`h-9 px-3 rounded-xl border-2 text-[13px] font-bold transition-colors ${
                     activeTab === tab.id
-                      ? 'border-ink bg-brand-yellow text-ink shadow-brutal-sm'
-                      : 'border-transparent text-ink hover:border-ink hover:bg-white'
+                      ? 'border-white/60 bg-brand-yellow text-slate-700 shadow-brutal-sm'
+                      : 'border-transparent text-slate-700 hover:border-white/60 hover:bg-white'
                   }`}
                 >
                   {tab.label}
@@ -51,7 +51,7 @@ export default function Navbar({
                 value={selectedEventId || ''}
                 onChange={(e) => setSelectedEventId(Number(e.target.value))}
                 title="Active event"
-                className="h-9 max-w-[11rem] sm:max-w-[16rem] truncate rounded-md border-2 border-ink bg-white px-2 text-[13px] font-bold text-ink shadow-brutal-sm focus:outline-none"
+                className="h-9 max-w-[11rem] sm:max-w-[16rem] truncate rounded-xl border-2 border-white/80 bg-white px-2 text-[13px] font-bold text-slate-700 shadow-brutal-sm focus:outline-none"
               >
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>{ev.name}</option>
@@ -88,8 +88,8 @@ export default function Navbar({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`h-8 px-2.5 rounded-md border-2 text-xs font-bold whitespace-nowrap ${
-                activeTab === tab.id ? 'border-ink bg-brand-yellow text-ink' : 'border-transparent text-ink'
+              className={`h-8 px-2.5 rounded-xl border-2 text-xs font-bold whitespace-nowrap ${
+                activeTab === tab.id ? 'border-white/60 bg-brand-yellow text-slate-700' : 'border-transparent text-slate-700'
               }`}
             >
               {tab.label}

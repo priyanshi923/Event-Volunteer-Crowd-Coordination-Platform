@@ -339,7 +339,7 @@ export default function IncidentCenter({
                       <span className={`dot mt-1.5 ${PRIORITY_DOT[iss.priority] || 'bg-neutral-300'}`} title={iss.priority} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <p className="text-[13px] text-ink">{iss.title}</p>
+                          <p className="text-[13px] text-slate-700">{iss.title}</p>
                           <span className={`text-xs shrink-0 ${STATUS_TEXT[iss.status] || 'text-neutral-700'}`}>
                             {iss.status.charAt(0) + iss.status.slice(1).toLowerCase()}
                           </span>
@@ -411,7 +411,7 @@ export default function IncidentCenter({
                   : '';
                 return (
                   <li key={ann.id} className="py-3 first:pt-0">
-                    <p className="text-[13px] text-ink">{ann.title}</p>
+                    <p className="text-[13px] text-slate-700">{ann.title}</p>
                     <p className="text-xs text-neutral-700 mt-1 leading-relaxed">{ann.message || ann.content}</p>
                     <p className="text-[11px] text-neutral-600 mt-1.5">
                       {audienceLabel(ann)}

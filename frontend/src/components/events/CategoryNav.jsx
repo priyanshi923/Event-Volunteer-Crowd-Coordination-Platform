@@ -9,7 +9,7 @@ function CategoryBubble({ label, count, active, coverEvent, onClick }) {
       className="group shrink-0 snap-start flex flex-col items-center gap-2 w-20"
     >
       <span
-        className={`w-16 h-16 rounded-full overflow-hidden border-[3px] border-ink transition-[transform,box-shadow] duration-150 ${
+        className={`w-16 h-16 rounded-full overflow-hidden border-2 border-white/80 transition-[transform,box-shadow] duration-150 ${
           active ? 'shadow-brutal -translate-x-0.5 -translate-y-0.5' : 'group-hover:shadow-brutal-sm'
         }`}
       >

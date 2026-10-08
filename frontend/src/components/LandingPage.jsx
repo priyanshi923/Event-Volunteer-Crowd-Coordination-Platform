@@ -22,12 +22,12 @@ export default function LandingPage({ onSelectVolunteer, onSelectCoordinator }) 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-xl">
-        <span className="inline-block rounded-md border-2 border-ink bg-brand-pink px-2.5 py-1 text-sm font-bold shadow-brutal-sm -rotate-2">
+        <span className="inline-block rounded-xl border-2 border-white/80 bg-brand-pink px-2.5 py-1 text-sm font-bold shadow-brutal-sm -rotate-2">
           CrowdCoord
         </span>
         <h1 className="mt-8 text-4xl sm:text-5xl font-bold tracking-tight leading-[1.05]">
           Volunteer &amp; crowd{' '}
-          <span className="bg-brand-yellow px-1.5 border-2 border-ink inline-block -rotate-1">coordination</span>
+          <span className="bg-brand-yellow px-1.5 border-2 border-white/80 inline-block -rotate-1">coordination</span>
         </h1>
         <p className="mt-5 text-base font-medium text-neutral-700">Choose how you want to continue.</p>
 

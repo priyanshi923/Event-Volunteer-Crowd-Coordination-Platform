@@ -21,7 +21,7 @@ function Stat({ label, value, detail, alert, color, onClick }) {
       <p className="mt-1 text-xs font-medium">
         {detail}
         {alert && (
-          <span className="ml-1 inline-block rounded border-2 border-ink bg-white px-1 font-bold text-red-700">{alert}</span>
+          <span className="ml-1 inline-block rounded border-2 border-white/80 bg-white px-1 font-bold text-red-700">{alert}</span>
         )}
       </p>
     </button>
@@ -34,7 +34,7 @@ function Section({ title, action, onAction, children }) {
       <div className="flex items-center justify-between mb-2">
         <h2 className="section-title">{title}</h2>
         {action && (
-          <button onClick={onAction} className="text-xs text-neutral-600 hover:text-ink inline-flex items-center gap-0.5">
+          <button onClick={onAction} className="text-xs text-neutral-600 hover:text-slate-700 inline-flex items-center gap-0.5">
             {action} <ChevronRight className="w-3.5 h-3.5" />
           </button>
         )}
@@ -196,7 +196,7 @@ export default function Dashboard({ metrics, setActiveTab, onEventCreated }) {
               <ul className="panel divide-rows overflow-hidden">
                 {moves.slice(0, 4).map((s, idx) => (
                   <li key={idx} className="px-4 py-2.5 text-[13px] font-medium flex items-center gap-1.5 flex-wrap">
-                    <span className="text-ink">{s.volunteer_name}</span>
+                    <span className="text-slate-700">{s.volunteer_name}</span>
                     <span className="text-neutral-600">{s.source_zone}</span>
                     <ArrowRight className="w-3 h-3 text-neutral-500" />
                     <span className="text-neutral-600">{s.target_zone}</span>
@@ -214,7 +214,7 @@ export default function Dashboard({ metrics, setActiveTab, onEventCreated }) {
           <div className="panel overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide border-b-2 border-ink bg-brand-yellow">
+                <tr className="text-left text-xs uppercase tracking-wide border-b-2 border-white/60 bg-brand-yellow">
                   <th className="font-bold py-2.5 px-4">Zone</th>
                   <th className="font-bold py-2.5 px-4">Status</th>
                   <th className="font-bold py-2.5 px-4 text-right">Volunteers</th>

@@ -188,25 +188,25 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
   return (
     <div className="min-h-screen flex flex-col">
       {statusMsg && (
-        <div role="status" className={`fixed bottom-5 right-5 z-50 max-w-sm rounded-md border-2 border-ink px-4 py-2.5 text-[13px] font-bold text-ink shadow-brutal ${statusMsg.error ? 'bg-brand-red' : 'bg-brand-yellow'}`}>
+        <div role="status" className={`fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border-2 border-white/80 px-4 py-2.5 text-[13px] font-bold text-slate-700 shadow-brutal ${statusMsg.error ? 'bg-brand-red' : 'bg-brand-yellow'}`}>
           {statusMsg.text}
         </div>
       )}
 
-      <header className="sticky top-0 z-40 bg-paper border-b-[3px] border-ink">
+      <header className="sticky top-0 z-40 bg-transparent border-b-[3px] border-white/60">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 gap-4">
           <div className="flex items-center gap-6 min-w-0">
-            <span className="shrink-0 rounded-md border-2 border-ink bg-brand-pink px-2 py-1 text-sm font-bold tracking-tight shadow-brutal-sm -rotate-2">CrowdCoord</span>
+            <span className="shrink-0 rounded-xl border-2 border-white/80 bg-brand-pink px-2 py-1 text-sm font-bold tracking-tight shadow-brutal-sm -rotate-2">CrowdCoord</span>
             <nav className="flex items-center gap-1 overflow-x-auto">
               {VOLUNTEER_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   id={`volunteer-tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`h-9 px-3 rounded-md border-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
+                  className={`h-9 px-3 rounded-xl border-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
                     activeTab === tab.id
-                      ? 'border-ink bg-brand-yellow shadow-brutal-sm'
-                      : 'border-transparent hover:border-ink hover:bg-white'
+                      ? 'border-white/60 bg-brand-yellow shadow-brutal-sm'
+                      : 'border-transparent hover:border-white/60 hover:bg-white'
                   }`}
                 >
                   {tab.label}
@@ -247,7 +247,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
               <h2 className="section-title mb-2">Next shift</h2>
               {nextShift ? (
                 <button onClick={() => setActiveTab('shifts')} className="w-full text-left card-lift bg-brand-blue px-4 py-3">
-                  <p className="text-[13px] text-ink">{nextShift.shift_title || nextShift.title}</p>
+                  <p className="text-[13px] text-slate-700">{nextShift.shift_title || nextShift.title}</p>
                   <p className="text-xs text-neutral-600 mt-0.5">
                     {[nextShift.shift_date, shiftTime(nextShift), nextShift.zone].filter(Boolean).join(' · ')}
                   </p>
@@ -256,7 +256,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
                 <p className="text-[13px] text-neutral-600">No upcoming shifts. A coordinator will assign you.</p>
               )}
               {openTaskCount > 0 && (
-                <button onClick={() => setActiveTab('tasks')} className="mt-3 text-[13px] text-neutral-700 hover:text-ink">
+                <button onClick={() => setActiveTab('tasks')} className="mt-3 text-[13px] text-neutral-700 hover:text-slate-700">
                   {openTaskCount} open task{openTaskCount > 1 ? 's' : ''} →
                 </button>
               )}
@@ -270,7 +270,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
                 <ul className="divide-rows">
                   {announcements.slice(0, 5).map((a) => (
                     <li key={a.id} className="py-3 first:pt-1">
-                      <p className="text-[13px] text-ink">{a.title || a.message || 'Announcement'}</p>
+                      <p className="text-[13px] text-slate-700">{a.title || a.message || 'Announcement'}</p>
                       {(a.message || a.content) && <p className="text-xs text-neutral-700 mt-1">{a.message || a.content}</p>}
                       <p className="text-[11px] text-neutral-500 mt-1">{a.created_at ? parseServerDate(a.created_at).toLocaleString() : ''}</p>
                     </li>
@@ -299,7 +299,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
                   return (
                     <li key={s.assignment_id || s.id} className="px-4 py-3 flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[13px] text-ink">{s.shift_title || s.title || `Shift #${s.shift_id || s.id}`}</p>
+                        <p className="text-[13px] text-slate-700">{s.shift_title || s.title || `Shift #${s.shift_id || s.id}`}</p>
                         <p className="text-xs text-neutral-600 mt-0.5">
                           {[s.shift_date, shiftTime(s), s.zone].filter(Boolean).join(' · ')}
                         </p>
@@ -338,7 +338,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
                 {tasks.map((task) => (
                   <li key={task.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[13px] text-ink">{task.title}</p>
+                      <p className="text-[13px] text-slate-700">{task.title}</p>
                       <p className="text-xs text-neutral-600 mt-0.5">
                         <span className={PRIORITY_COLORS[task.priority] || ''}>
                           {(task.priority || 'MEDIUM').charAt(0) + (task.priority || 'MEDIUM').slice(1).toLowerCase()}
@@ -430,7 +430,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
               </div>
             </div>
 
-            <dl className="divide-rows border-y-2 border-ink">
+            <dl className="divide-rows border-y-2 border-white/60">
               {[
                 ['Name', profile.full_name],
                 ['Email', profile.email],
@@ -446,7 +446,7 @@ export default function VolunteerDashboard({ onSwitchRole, selectedEventId }) {
               ].map(([label, value]) => (
                 <div key={label} className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-1 sm:gap-4 py-3 text-[13px]">
                   <dt className="text-neutral-600">{label}</dt>
-                  <dd className="text-ink">{value}</dd>
+                  <dd className="text-slate-700">{value}</dd>
                 </div>
               ))}
             </dl>

@@ -173,7 +173,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       {/* Toast Notification */}
       {toastMessage && (
-        <div role="status" className="fixed bottom-5 right-5 z-50 max-w-sm rounded-md border-2 border-ink bg-brand-yellow px-4 py-2.5 text-[13px] font-bold text-ink shadow-brutal">
+        <div role="status" className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border-2 border-white/80 bg-brand-yellow px-4 py-2.5 text-[13px] font-bold text-slate-700 shadow-brutal">
           {toastMessage}
         </div>
       )}
@@ -196,7 +196,7 @@ export default function App() {
 
       {/* Offline Alert Banner */}
       {!backendConnected && (
-        <div className="border-b-2 border-ink bg-red-100 text-red-700 text-xs px-4 py-2 text-center">
+        <div className="border-b-2 border-white/60 bg-red-100 text-red-700 text-xs px-4 py-2 text-center">
           Can't reach the API at <code className="text-red-700">http://127.0.0.1:8001</code>. Make sure the FastAPI server is running.
         </div>
       )}

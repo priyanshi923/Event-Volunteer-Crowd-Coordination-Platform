@@ -109,7 +109,7 @@ export default function RoleManager({ eventId, roles, skills, onChange }) {
               ) : (
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[13px] text-ink">{role.name}</p>
+                    <p className="text-[13px] text-slate-700">{role.name}</p>
                     <p className="text-xs text-neutral-600">
                       {role.required_skill || 'No required skill'} · {role.needed_count} needed
                     </p>

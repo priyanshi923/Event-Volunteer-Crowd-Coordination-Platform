@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
-/*
-  Neo-brutalist design system: warm paper background, ink-black 2px outlines,
-  hard offset shadows (no blur), flat saturated accents and a bold grotesk.
-*/
 @theme {
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Nunito", "Quicksand", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
-  --color-ink: #111111;
-  --color-paper: #fff6e5;
-  --color-brand-yellow: #ffd23f;
-  --color-brand-pink: #ff8fab;
-  --color-brand-blue: #74b9ff;
-  --color-brand-green: #4ade80;
-  --color-brand-red: #ff6b6b;
-  --color-brand-orange: #ffa94d;
-  --color-brand-violet: #b197fc;
+  /* Bright Claymorphism Palette */
+  /* Redefine old neo-brutalist vars to soft clay equivalents to keep the CSS compiling */
+  --color-ink: #334155;
+  --color-paper: #eef2f6;
+  
+  --color-brand-yellow: #fde68a;
+  --color-brand-pink: #fbcfe8;
+  --color-brand-blue: #bfdbfe;
+  --color-brand-green: #bbf7d0;
+  --color-brand-red: #fecaca;
+  --color-brand-orange: #fed7aa;
+  --color-brand-violet: #ddd6fe;
 
-  --shadow-brutal-sm: 2px 2px 0 0 #111111;
-  --shadow-brutal: 4px 4px 0 0 #111111;
-  --shadow-brutal-lg: 6px 6px 0 0 #111111;
-  --shadow-brutal-xl: 8px 8px 0 0 #111111;
+  /* We keep the variable names but change their appearance to soft, layered shadows for Claymorphism */
+  --shadow-brutal-sm: 4px 4px 10px rgba(166, 180, 200, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.9);
+  --shadow-brutal: 8px 8px 16px rgba(166, 180, 200, 0.45), -8px -8px 16px rgba(255, 255, 255, 0.9);
+  --shadow-brutal-lg: 12px 12px 24px rgba(166, 180, 200, 0.5), -12px -12px 24px rgba(255, 255, 255, 0.9);
+  --shadow-brutal-xl: 16px 16px 32px rgba(166, 180, 200, 0.5), -16px -16px 32px rgba(255, 255, 255, 0.9);
 }
 
 @layer base {
@@ -29,116 +29,116 @@
     scrollbar-gutter: stable;
   }
   body {
-    @apply bg-paper text-ink antialiased min-h-screen text-sm font-sans;
-  }
-  ::selection {
-    @apply bg-brand-yellow text-ink;
+    @apply bg-[#eef2f6] text-slate-700 antialiased min-h-screen text-sm font-sans selection:bg-[#bfdbfe] selection:text-slate-800;
   }
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-ink;
+    @apply outline-none ring-4 ring-brand-blue/60 ring-offset-2 ring-offset-[#eef2f6];
   }
 }
 
 @layer components {
-  /* Buttons: outlined, hard shadow, press-in on click */
+  /* Buttons: soft tactile clay feel */
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-md border-2 border-ink text-[13px] font-bold whitespace-nowrap cursor-pointer select-none
-      shadow-brutal-sm transition-[transform,box-shadow] duration-100
-      hover:-translate-x-px hover:-translate-y-px hover:shadow-brutal
-      active:translate-x-[2px] active:translate-y-[2px] active:shadow-none
-      disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-none;
+    @apply inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl border-2 border-white/80 text-[13px] font-bold whitespace-nowrap cursor-pointer select-none
+      shadow-brutal-sm transition-all duration-300
+      hover:-translate-y-0.5 hover:shadow-brutal hover:border-white
+      active:translate-y-px active:shadow-[inset_2px_2px_4px_rgba(166,180,200,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]
+      disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none;
   }
   .btn-sm {
-    @apply h-7 px-2.5 text-xs;
+    @apply h-8 px-3 text-xs rounded-lg border-2 border-white/70;
   }
   .btn-primary {
-    @apply bg-brand-yellow text-ink;
+    @apply bg-[#ddd6fe] text-slate-800 border-[#ddd6fe] hover:bg-[#c4b5fd];
   }
   .btn-secondary {
-    @apply bg-white text-ink;
+    @apply bg-white text-slate-700;
   }
   .btn-ghost {
-    @apply border-transparent bg-transparent text-ink shadow-none
-      hover:translate-x-0 hover:translate-y-0 hover:shadow-none hover:bg-ink/10
-      active:translate-x-0 active:translate-y-0;
+    @apply border-transparent bg-transparent text-slate-600 shadow-none hover:bg-white/50 hover:shadow-brutal-sm hover:-translate-y-0.5 active:shadow-[inset_2px_2px_4px_rgba(166,180,200,0.2)];
   }
   .btn-danger {
-    @apply bg-brand-red text-ink;
+    @apply bg-[#fecaca] text-slate-800 border-[#fecaca] hover:bg-[#fca5a5];
   }
 
   /* Form controls */
   .label {
-    @apply block text-xs font-bold uppercase tracking-wide text-ink mb-1.5;
+    @apply block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2;
   }
   .input {
-    @apply w-full h-10 rounded-md border-2 border-ink bg-white px-3 text-sm font-medium text-ink placeholder:text-neutral-500 placeholder:font-normal
-      shadow-brutal-sm transition-shadow focus:outline-none focus:shadow-brutal focus:bg-yellow-50;
+    @apply w-full h-11 rounded-xl border-2 border-white bg-[#f8fafc] px-4 text-sm font-medium text-slate-700 placeholder:text-slate-400 placeholder:font-normal
+      shadow-[inset_2px_2px_4px_rgba(166,180,200,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.8)] 
+      transition-all duration-300 focus:outline-none focus:bg-white focus:border-[#bfdbfe] focus:shadow-brutal-sm;
   }
   textarea.input {
-    @apply h-auto py-2;
+    @apply h-auto py-3;
   }
   .input-sm {
-    @apply h-9 text-[13px] px-2.5;
+    @apply h-9 text-[13px] px-3;
   }
 
-  /* Small inline labels */
+  /* Tags / Badges */
   .tag {
-    @apply inline-flex items-center gap-1 rounded border-2 border-ink bg-white px-1.5 py-0.5 text-[11px] font-bold text-ink whitespace-nowrap;
+    @apply inline-flex items-center gap-1 rounded-full border-2 border-white/80 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 whitespace-nowrap shadow-brutal-sm;
   }
   .dot {
-    @apply inline-block w-2.5 h-2.5 rounded-full border-2 border-ink shrink-0;
+    @apply inline-block w-2.5 h-2.5 rounded-full border-2 border-white shrink-0 shadow-sm;
   }
 
-  /* Layout */
+  /* Layout Elements */
   .page-header {
     @apply flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8;
   }
   .page-title {
-    @apply text-3xl font-bold text-ink tracking-tight;
+    @apply text-3xl font-extrabold text-slate-800 tracking-tight;
   }
   .page-subtitle {
-    @apply text-sm font-medium text-neutral-700 mt-1;
+    @apply text-sm font-semibold text-slate-500 mt-1.5;
   }
   .section-title {
-    @apply text-sm font-bold uppercase tracking-wide text-ink;
+    @apply text-sm font-bold uppercase tracking-wide text-slate-600;
   }
+  
   .panel {
-    @apply rounded-lg border-2 border-ink bg-white shadow-brutal;
+    @apply rounded-[1.5rem] border-2 border-white/80 bg-white shadow-brutal transition-shadow hover:shadow-brutal-lg;
   }
+  
   .divide-rows > * + * {
-    @apply border-t-2 border-ink;
+    @apply border-t-2 border-white/60;
   }
 
   /* Segmented filter control */
   .segmented {
-    @apply inline-flex items-stretch rounded-md border-2 border-ink bg-white shadow-brutal-sm overflow-hidden;
+    @apply inline-flex items-stretch rounded-xl border-2 border-white/60 bg-[#eef2f6] p-1 shadow-[inset_2px_2px_4px_rgba(166,180,200,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.8)] overflow-hidden;
   }
   .segmented > button {
-    @apply h-8 px-3 text-xs font-bold text-ink whitespace-nowrap border-r-2 border-ink last:border-r-0 transition-colors hover:bg-yellow-100;
+    @apply h-8 px-4 text-xs font-bold text-slate-500 whitespace-nowrap rounded-lg transition-all duration-300 border-none;
   }
   .segmented > button[aria-pressed="true"] {
-    @apply bg-brand-yellow;
+    @apply bg-white text-slate-800 shadow-sm border border-white/50;
+  }
+  .segmented > button:hover:not([aria-pressed="true"]) {
+    @apply text-slate-700 bg-white/40;
   }
 
   /* Modal */
   .modal-backdrop {
-    @apply fixed inset-0 z-50 bg-ink/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto;
+    @apply fixed inset-0 z-50 bg-slate-900/10 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto;
   }
   .modal {
-    @apply w-full max-w-md rounded-lg border-[3px] border-ink bg-paper p-6 my-8 shadow-brutal-xl;
+    @apply w-full max-w-md rounded-[2rem] border-4 border-white bg-[#f8fafc] p-6 my-8 shadow-brutal-xl transform transition-all;
   }
   .modal-title {
-    @apply text-xl font-bold text-ink tracking-tight;
+    @apply text-xl font-extrabold text-slate-800 tracking-tight;
   }
 
   .empty {
-    @apply py-10 text-center text-sm font-medium text-neutral-700;
+    @apply py-12 text-center text-sm font-medium text-slate-400 bg-white/40 rounded-[1.5rem] border-2 border-dashed border-white shadow-inner;
   }
 
-  /* Hard-shadow card that lifts on hover */
   .card-lift {
-    @apply rounded-lg border-2 border-ink bg-white shadow-brutal transition-[transform,box-shadow] duration-150
-      hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-brutal-lg;
+    @apply rounded-[1.5rem] border-2 border-white/80 bg-white shadow-brutal transition-all duration-300
+      hover:-translate-y-1 hover:shadow-brutal-lg;
   }
 }
 
@@ -148,11 +148,14 @@
   height: 12px;
 }
 ::-webkit-scrollbar-track {
-  background: #fff6e5;
-  border-left: 2px solid #111111;
+  background: #eef2f6;
+  border-left: 2px solid #ffffff;
 }
 ::-webkit-scrollbar-thumb {
-  background: #111111;
-  border: 3px solid #fff6e5;
-  border-radius: 6px;
+  background: #cbd5e1;
+  border: 3px solid #eef2f6;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

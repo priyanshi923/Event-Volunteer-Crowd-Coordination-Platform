@@ -134,7 +134,7 @@ export default function EventForm({ event = null, onClose, onSaved }) {
         <div>
           <span className="label">Cover image <span className="text-neutral-500">(optional)</span></span>
           <div className="flex items-center gap-4">
-            <div className="w-32 aspect-video rounded-md overflow-hidden border-2 border-ink bg-white shrink-0">
+            <div className="w-32 aspect-video rounded-xl overflow-hidden border-2 border-white/80 bg-white shrink-0">
               {currentImage ? (
                 <img src={currentImage} alt="" className="w-full h-full object-cover" />
               ) : (

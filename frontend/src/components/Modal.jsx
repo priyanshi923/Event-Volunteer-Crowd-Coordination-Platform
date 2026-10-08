@@ -16,7 +16,7 @@ export default function Modal({ title, subtitle, onClose, children, footer, size
           </button>
         </div>
         <div className="overflow-y-auto mt-4 -mx-6 px-6 pb-1">{children}</div>
-        {footer && <div className="pt-4 mt-2 border-t-2 border-ink flex items-center justify-end gap-2">{footer}</div>}
+        {footer && <div className="pt-4 mt-2 border-t-2 border-white/60 flex items-center justify-end gap-2">{footer}</div>}
       </div>
     </div>
   );

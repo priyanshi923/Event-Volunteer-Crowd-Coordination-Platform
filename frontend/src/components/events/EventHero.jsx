@@ -8,12 +8,12 @@ import { formatEventDate, formatEventTime } from '../../services/eventUtils';
 export default function EventHero({ event, onOpen }) {
   const time = formatEventTime(event);
   return (
-    <section className="relative overflow-hidden rounded-lg border-[3px] border-ink shadow-brutal-lg min-h-[24rem] sm:min-h-[28rem] flex">
+    <section className="relative overflow-hidden rounded-2xl border-2 border-white/80 shadow-brutal-lg min-h-[24rem] sm:min-h-[28rem] flex">
       <div className="absolute inset-0">
         <EventCover event={event} showInitial={false} />
       </div>
 
-      <div className="relative self-end mt-auto m-3 sm:m-6 w-full sm:max-w-xl rounded-lg border-2 border-ink bg-white p-5 sm:p-6 shadow-brutal">
+      <div className="relative self-end mt-auto m-3 sm:m-6 w-full sm:max-w-xl rounded-2xl border-2 border-white/80 bg-white p-5 sm:p-6 shadow-brutal">
         <div className="flex flex-wrap items-center gap-2">
           <span className="tag bg-brand-yellow">{event.is_featured ? 'Featured' : 'Up next'}</span>
           {event.category && <span className="tag">{event.category}</span>}

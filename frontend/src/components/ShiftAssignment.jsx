@@ -48,7 +48,7 @@ function CandidateRow({ name, score, skills, workload, availability, checkedIn, 
   return (
     <li className="flex items-start justify-between gap-4 py-3">
       <div className="min-w-0">
-        <p className="text-[13px] text-ink">
+        <p className="text-[13px] text-slate-700">
           {name}
           {checkedIn && <span className="ml-2 text-xs text-green-700">Checked in</span>}
         </p>
@@ -59,7 +59,7 @@ function CandidateRow({ name, score, skills, workload, availability, checkedIn, 
         <ScoreBreakdown breakdown={breakdown} />
       </div>
       <div className="flex items-center gap-3 shrink-0">
-        <span className="text-[13px] font-medium text-ink tabular-nums" title="Assignment score out of 100">{score}</span>
+        <span className="text-[13px] font-medium text-slate-700 tabular-nums" title="Assignment score out of 100">{score}</span>
         <button onClick={onAction} className="btn btn-secondary btn-sm">{actionLabel}</button>
       </div>
     </li>
@@ -368,17 +368,17 @@ export default function ShiftAssignment({
       {(noShowNotice || rebalanceResult) && (
         <div className="mb-6 space-y-2">
           {noShowNotice && (
-            <div className="flex items-center justify-between gap-3 rounded-md border-2 border-ink px-3 py-2 text-[13px] text-neutral-800">
+            <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-white/80 px-3 py-2 text-[13px] text-neutral-800">
               <span>{noShowNotice}</span>
-              <button onClick={() => setNoShowNotice(null)} className="text-neutral-600 hover:text-ink" title="Dismiss">
+              <button onClick={() => setNoShowNotice(null)} className="text-neutral-600 hover:text-slate-700" title="Dismiss">
                 <X className="w-4 h-4" />
               </button>
             </div>
           )}
           {rebalanceResult && (
-            <div className="flex items-center justify-between gap-3 rounded-md border-2 border-ink px-3 py-2 text-[13px] text-neutral-800">
+            <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-white/80 px-3 py-2 text-[13px] text-neutral-800">
               <span>Staffing rebalanced.</span>
-              <button onClick={() => setRebalanceResult(null)} className="text-neutral-600 hover:text-ink" title="Dismiss">
+              <button onClick={() => setRebalanceResult(null)} className="text-neutral-600 hover:text-slate-700" title="Dismiss">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -405,7 +405,7 @@ export default function ShiftAssignment({
               <li key={shift.id} className="px-4 py-4">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-medium text-ink">{shift.title}</p>
+                    <p className="text-[13px] font-medium text-slate-700">{shift.title}</p>
                     <p className="text-xs text-neutral-600 mt-0.5">
                       <span className="tabular-nums">{shift.start_time}–{shift.end_time}</span>
                       {' · '}{shift.zone}
@@ -437,7 +437,7 @@ export default function ShiftAssignment({
                     {activeAssignments.map((asgn) => (
                       <li
                         key={asgn.id}
-                        className="inline-flex items-center gap-1 rounded-md bg-brand-blue border-2 border-ink pl-2 pr-0.5 h-8 text-xs font-bold shadow-brutal-sm"
+                        className="inline-flex items-center gap-1 rounded-xl bg-brand-blue border-2 border-white/80 pl-2 pr-0.5 h-8 text-xs font-bold shadow-brutal-sm"
                       >
                         {asgn.status === 'Checked In' && <span className="dot bg-brand-green mr-0.5" title="Checked in" />}
                         {asgn.volunteer?.full_name || `Volunteer #${asgn.volunteer_id}`}
@@ -562,7 +562,7 @@ export default function ShiftAssignment({
               {rebalancePlan.suggestions.map((s, idx) => (
                 <li key={idx} className="flex items-start justify-between gap-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-[13px] text-ink">{s.volunteer_name}</p>
+                    <p className="text-[13px] text-slate-700">{s.volunteer_name}</p>
                     <p className="text-xs text-neutral-700 mt-0.5 flex items-center gap-1.5 flex-wrap">
                       {s.source_shift_title} <span className="text-neutral-500">({s.source_zone})</span>
                       <ArrowRight className="w-3 h-3 text-neutral-500" />

@@ -282,7 +282,7 @@ export default function TaskBoard({
     <div className="relative">
       {/* Toast Notification Banner */}
       {notification && (
-        <div className={`mb-4 p-3 rounded-lg border flex items-center justify-between text-sm transition-all shadow-sm ${
+        <div className={`mb-4 p-3 rounded-2xl border flex items-center justify-between text-sm transition-all shadow-sm ${
           notification.type === 'success'
             ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
             : notification.type === 'warning'
@@ -315,7 +315,7 @@ export default function TaskBoard({
           {/* Jira Connection Badge */}
           {jiraStatus && (
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-xl border ${
                 jiraStatus.connected
                   ? 'bg-blue-50 text-blue-800 border-blue-200'
                   : 'bg-neutral-50 text-neutral-600 border-neutral-200'
@@ -378,7 +378,7 @@ export default function TaskBoard({
                 </h2>
 
                 {colTasks.length === 0 ? (
-                  <p className="text-[13px] text-neutral-500 py-8 text-center border border-dashed border-ink rounded-lg bg-neutral-50/50">
+                  <p className="text-[13px] text-neutral-500 py-8 text-center border border-dashed border-white/60 rounded-2xl bg-neutral-50/50">
                     No tasks
                   </p>
                 ) : (
@@ -390,9 +390,9 @@ export default function TaskBoard({
                       const isTaskSyncing = syncingTaskId === task.id;
 
                       return (
-                        <article key={task.id} className="group rounded-lg border-2 border-ink bg-white p-3.5 shadow-brutal-sm hover:shadow-brutal transition-shadow">
+                        <article key={task.id} className="group rounded-2xl border-2 border-white/80 bg-white p-3.5 shadow-brutal-sm hover:shadow-brutal transition-shadow">
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="text-[13px] font-semibold text-ink leading-snug">{task.title}</h3>
+                            <h3 className="text-[13px] font-semibold text-slate-700 leading-snug">{task.title}</h3>
                             <button
                               onClick={() => handleDeleteTask(task.id)}
                               title="Delete task"
@@ -481,7 +481,7 @@ export default function TaskBoard({
                                     <option key={v.id} value={v.id}>{v.full_name || v.name}</option>
                                   ))}
                                 </select>
-                                <button onClick={() => setAssigningTaskId(null)} className="text-neutral-600 hover:text-ink p-1" title="Cancel">
+                                <button onClick={() => setAssigningTaskId(null)} className="text-neutral-600 hover:text-slate-700 p-1" title="Cancel">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
@@ -489,7 +489,7 @@ export default function TaskBoard({
                               <button
                                 onClick={() => setAssigningTaskId(task.id)}
                                 title="Assign or change volunteer"
-                                className={`text-xs truncate hover:text-ink ${assignee ? 'text-neutral-800 font-medium' : 'text-neutral-400'}`}
+                                className={`text-xs truncate hover:text-slate-700 ${assignee ? 'text-neutral-800 font-medium' : 'text-neutral-400'}`}
                               >
                                 {assignee || 'Assign volunteer'}
                               </button>

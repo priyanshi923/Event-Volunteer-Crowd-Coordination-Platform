@@ -14,7 +14,7 @@ function Detail({ label, children }) {
   return (
     <div className="flex justify-between gap-4 py-2 text-[13px]">
       <span className="text-neutral-600">{label}</span>
-      <span className="text-ink text-right">{children}</span>
+      <span className="text-slate-700 text-right">{children}</span>
     </div>
   );
 }
@@ -163,7 +163,7 @@ export default function VolunteerRoster({ onStatusChange }) {
             return (
               <li key={vol.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
                 <button onClick={() => handleViewHistory(vol.id)} disabled={loadingHistory} className="min-w-0 md:w-64 text-left group">
-                  <p className="text-[13px] text-ink group-hover:underline underline-offset-2 truncate">{name}</p>
+                  <p className="text-[13px] text-slate-700 group-hover:underline underline-offset-2 truncate">{name}</p>
                   <p className="text-xs text-neutral-600 truncate mt-0.5">{vol.skills || 'No listed skills'}</p>
                 </button>
 
@@ -263,7 +263,7 @@ export default function VolunteerRoster({ onStatusChange }) {
             <ul className="divide-rows mb-2">
               {availModalVolunteer.availability_slots.map((slot) => (
                 <li key={slot.id} className="flex items-center justify-between py-2 text-[13px]">
-                  <span className="text-ink">
+                  <span className="text-slate-700">
                     {slot.day_of_week} <span className="text-neutral-600 tabular-nums ml-1">{slot.start_time}–{slot.end_time}</span>
                   </span>
                   <button onClick={() => handleDeleteAvailabilitySlot(slot.id)} className="btn btn-danger btn-sm">
@@ -274,7 +274,7 @@ export default function VolunteerRoster({ onStatusChange }) {
             </ul>
           )}
 
-          <form onSubmit={handleAddAvailabilitySlot} className="mt-4 pt-4 border-t-2 border-ink">
+          <form onSubmit={handleAddAvailabilitySlot} className="mt-4 pt-4 border-t-2 border-white/60">
             {slotError && <p className="text-xs text-red-700 mb-2">{slotError}</p>}
             <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_6.5rem_6.5rem_auto] gap-2 items-end">
               <div className="col-span-3 sm:col-span-1">

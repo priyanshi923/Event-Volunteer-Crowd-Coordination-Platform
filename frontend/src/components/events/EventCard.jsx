@@ -17,8 +17,8 @@ export function VolunteerMeter({ event, className = '' }) {
         {target > 0 && <span className="tabular-nums">{pct}%</span>}
       </div>
       {target > 0 && (
-        <div className="mt-1.5 h-3 rounded-full border-2 border-ink bg-white overflow-hidden">
-          <div className="h-full bg-brand-violet border-r-2 border-ink last:border-r-0" style={{ width: `${pct}%` }} />
+        <div className="mt-1.5 h-3 rounded-full border-2 border-white/80 bg-white overflow-hidden">
+          <div className="h-full bg-brand-violet border-r-2 border-white/60 last:border-r-0" style={{ width: `${pct}%` }} />
         </div>
       )}
     </div>
@@ -31,7 +31,7 @@ export default function EventCard({ event, onOpen }) {
 
   return (
     <button onClick={() => onOpen(event)} className="group card-lift w-full text-left overflow-hidden">
-      <div className="relative aspect-[16/10] overflow-hidden border-b-2 border-ink">
+      <div className="relative aspect-[16/10] overflow-hidden border-b-2 border-white/60">
         <EventCover event={event} imgClassName="transition-transform duration-300 group-hover:scale-[1.04]" />
         <span className={`absolute top-2.5 left-2.5 tag ${STATUS_BADGE[timing]}`}>{STATUS_LABEL[timing]}</span>
         {event.is_featured && <span className="absolute top-2.5 right-2.5 tag bg-brand-yellow">Featured</span>}

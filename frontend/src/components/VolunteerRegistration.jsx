@@ -116,7 +116,7 @@ export default function VolunteerRegistration({ onRegistered, onBack, eventId })
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
 
-        <h1 className="text-xl font-semibold text-ink tracking-tight">Volunteer registration</h1>
+        <h1 className="text-xl font-semibold text-slate-700 tracking-tight">Volunteer registration</h1>
         <p className="mt-1 text-neutral-700">Tell coordinators how you can help.</p>
 
         <form onSubmit={handleSubmit} id="volunteer-registration-form" className="mt-8 space-y-5">
@@ -181,7 +181,7 @@ export default function VolunteerRegistration({ onRegistered, onBack, eventId })
                     type="button"
                     aria-pressed={selected}
                     onClick={() => toggleSkill(skill)}
-                    className={`h-8 px-2.5 rounded-md text-xs font-bold border-2 border-ink transition-[transform,box-shadow] ${
+                    className={`h-8 px-2.5 rounded-xl text-xs font-bold border-2 border-white/80 transition-[transform,box-shadow] ${
                       selected
                         ? 'bg-brand-yellow shadow-brutal-sm -translate-x-px -translate-y-px'
                         : 'bg-white hover:bg-yellow-100'
