@@ -1,0 +1,42 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"],
+      "cwd": "backend",
+      "port": 8000
+    },
+    {
+      "name": "jira-simulator",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["simulation/jira_simulator.py"],
+      "port": 8090
+    },
+    {
+      "name": "prometheus",
+      "runtimeExecutable": "tools/prometheus-2.54.1.windows-amd64/prometheus.exe",
+      "runtimeArgs": ["--config.file=tools/local/prometheus.yml", "--storage.tsdb.path=tools/local/prometheus-data", "--web.listen-address=127.0.0.1:9090"],
+      "port": 9090
+    },
+    {
+      "name": "grafana",
+      "runtimeExecutable": "tools/grafana-v11.2.0/bin/grafana.exe",
+      "runtimeArgs": ["server", "--homepath", "tools/grafana-v11.2.0"],
+      "port": 3001
+    },
+    {
+      "name": "traffic-simulator",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-u", "simulation/traffic_simulator.py"]
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 5173
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, ChevronRight, Plus } from 'lucide-react';
 import EventForm from './events/EventForm';
+import GitHubActionsPanel from './GitHubActionsPanel';
 
 const PRIORITY_DOT = {
   CRITICAL: 'bg-brand-red',
@@ -244,6 +245,8 @@ export default function Dashboard({ metrics, setActiveTab, onEventCreated }) {
           </div>
         </Section>
       )}
+
+      <GitHubActionsPanel />
     </div>
   );
 }

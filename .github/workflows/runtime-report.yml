@@ -1,0 +1,85 @@
+name: EVCP Runtime Report
+
+# Triggered by the running EVCP backend (backend/github_service.py) on startup, from the
+# dashboard's "Send report" button, and on an optional heartbeat. Each run publishes a live
+# snapshot of the platform to the run summary and raises annotations for anything critical.
+run-name: "EVCP runtime ${{ inputs.event }} from ${{ inputs.source }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      event:
+        description: "What triggered the report (startup, manual, heartbeat)"
+        required: true
+        default: manual
+      source:
+        description: "Which EVCP instance sent it"
+        required: true
+        default: manual-trigger
+      snapshot:
+        description: "JSON snapshot of platform state"
+        required: false
+        default: "{}"
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Publish runtime snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Publish snapshot to run summary
+        env:
+          EVENT: ${{ inputs.event }}
+          SOURCE: ${{ inputs.source }}
+          SNAPSHOT: ${{ inputs.snapshot }}
+        shell: python
+        run: |
+          import json, os
+
+          try:
+              snap = json.loads(os.environ.get("SNAPSHOT") or "{}")
+          except json.JSONDecodeError:
+              print("::error title=Invalid snapshot::snapshot input is not valid JSON")
+              raise SystemExit(1)
+
+          def val(key):
+              v = snap.get(key)
+              return "—" if v is None else v
+
+          rows = [
+              ("Active event", val("active_event_name")),
+              ("Volunteers checked in", f'{val("checked_in_volunteers")} / {val("total_volunteers")}'),
+              ("Shifts fully staffed", f'{val("filled_shifts")} / {val("total_shifts")}'),
+              ("Coverage gaps (open slots)", val("coverage_gaps_count")),
+              ("Tasks open / in progress / resolved", f'{val("open_tasks")} / {val("in_progress_tasks")} / {val("resolved_tasks")}'),
+              ("Open incidents", val("open_issues")),
+              ("Critical incidents", val("critical_issues")),
+              ("Escalated incidents", val("escalated_issues_count")),
+              ("No-shows", val("no_shows_count")),
+              ("Jira sync", "enabled" if snap.get("jira", {}).get("enabled") else "disabled"),
+          ]
+
+          lines = [
+              f"## EVCP runtime report — `{os.environ['EVENT']}`",
+              "",
+              f"Sent by **{os.environ['SOURCE']}** at `{val('reported_at')}`",
+              "",
+              "| Metric | Value |",
+              "|---|---|",
+              *[f"| {k} | {str(v).replace('|', '/')} |" for k, v in rows],
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+
+          # Surface operational risk as annotations on the run page.
+          if (snap.get("critical_issues") or 0) > 0:
+              print(f"::warning title=Critical incidents::{snap['critical_issues']} critical incident(s) open at {val('active_event_name')}")
+          if (snap.get("escalated_issues_count") or 0) > 0:
+              print(f"::warning title=Escalations::{snap['escalated_issues_count']} incident(s) escalated")
+          if (snap.get("coverage_gaps_count") or 0) > 0:
+              print(f"::notice title=Coverage gaps::{snap['coverage_gaps_count']} unfilled volunteer slot(s)")

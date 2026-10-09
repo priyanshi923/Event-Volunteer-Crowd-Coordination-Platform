@@ -94,3 +94,7 @@ prometheus_data/
 grafana_data/
 data/
 
+
+# --- Local native tooling (Prometheus/Grafana binaries, runtime data) ---
+tools/
+simulation/jira_sim_store.json

@@ -1,9 +1,10 @@
 import asyncio
+import time
 import os
 import sys
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # Search for .env files automatically
@@ -23,6 +24,7 @@ from database import engine, Base, get_db, init_db, SessionLocal
 import models, schemas, crud
 import assignment_engine
 from jira_service import jira_service
+from github_service import github_service
 
 # Standardize UTF-8 stdout so log lines with symbols don't crash cp1252 Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -52,14 +54,40 @@ def sync_jira_tasks_from_cloud(db: Session):
         except Exception as e:
             pass
 
+def build_runtime_snapshot(db: Session) -> dict:
+    """Point-in-time platform state that is published to GitHub Actions as a runtime report."""
+    m = crud.get_dashboard_metrics(db)
+    keys = (
+        "active_event_name", "total_volunteers", "checked_in_volunteers", "total_shifts", "filled_shifts",
+        "coverage_gaps_count", "open_tasks", "in_progress_tasks", "resolved_tasks", "open_issues",
+        "critical_issues", "escalated_issues_count", "no_shows_count",
+    )
+    snapshot = {k: m.get(k) for k in keys}
+    snapshot["jira"] = {"enabled": jira_service.enabled, "project": jira_service.project_key}
+    snapshot["reported_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return snapshot
+
+def send_github_report(event: str) -> dict:
+    """Build a snapshot and dispatch the runtime-report workflow (blocking; call from a thread)."""
+    db = SessionLocal()
+    try:
+        snapshot = build_runtime_snapshot(db)
+    finally:
+        db.close()
+    result = github_service.dispatch_report(event, snapshot)
+    GITHUB_DISPATCHES_TOTAL.labels(result="success" if result["ok"] else "failure").inc()
+    return result
+
 async def run_periodic_checker():
     """Runs approximately every 10 seconds in background using a fresh SQLAlchemy session."""
     counter = 0
+    last_github_report = time.monotonic()
     while True:
         try:
             await asyncio.sleep(10)
             counter += 1
             def run_sync_checks():
+                nonlocal last_github_report
                 db = SessionLocal()
                 try:
                     crud.check_issue_escalations(db)
@@ -71,6 +99,11 @@ async def run_periodic_checker():
                     print(f"Periodic check error: {e}")
                 finally:
                     db.close()
+                # Optional heartbeat report to GitHub Actions (GITHUB_REPORT_INTERVAL_MIN, 0 = off)
+                interval = github_service.heartbeat_minutes * 60
+                if interval > 0 and github_service.can_dispatch and time.monotonic() - last_github_report >= interval:
+                    last_github_report = time.monotonic()
+                    send_github_report("heartbeat")
             await asyncio.to_thread(run_sync_checks)
         except asyncio.CancelledError:
             break
@@ -89,6 +122,8 @@ async def lifespan(app: FastAPI):
         db.close()
 
     checker_task = asyncio.create_task(run_periodic_checker())
+    if github_service.report_on_startup and github_service.can_dispatch:
+        asyncio.create_task(asyncio.to_thread(send_github_report, "startup"))
     try:
         yield
     finally:
@@ -119,6 +154,7 @@ CHECKINS_TOTAL = Counter("evcp_checkins_total", "Cumulative total volunteer chec
 CHECKOUTS_TOTAL = Counter("evcp_checkouts_total", "Cumulative total volunteer check-outs processed")
 INCIDENTS_REPORTED_TOTAL = Counter("evcp_incidents_reported_total", "Cumulative total incidents reported")
 AUTO_ASSIGNMENTS_TOTAL = Counter("evcp_auto_assignments_total", "Cumulative total automatic shift assignments executed")
+GITHUB_DISPATCHES_TOTAL = Counter("evcp_github_dispatches_total", "Runtime reports dispatched to GitHub Actions", ["result"])
 
 # Standard HTTP metrics (request duration, request count, status codes, in-progress)
 instrumentator = Instrumentator(
@@ -904,6 +940,24 @@ async def jira_webhook(request: Request, db: Session = Depends(get_db)):
         "old_status": old_status,
         "new_status": evcp_status
     }
+
+@app.get("/github/status")
+@app.get("/api/github/status")
+def get_github_status():
+    """GitHub Actions connection info plus the most recent workflow runs."""
+    runs = github_service.list_runs()
+    return {**github_service.status(), "runsOk": runs["ok"], "runsError": runs.get("error"), "runs": runs["runs"]}
+
+@app.post("/github/report")
+@app.post("/api/github/report")
+def post_github_report():
+    """Dispatch the runtime-report workflow on GitHub Actions with the current platform snapshot."""
+    if not github_service.can_dispatch:
+        raise HTTPException(status_code=400, detail="GitHub Actions dispatch is not configured. Set GITHUB_TOKEN in backend/.env.")
+    result = send_github_report("manual")
+    if not result["ok"]:
+        raise HTTPException(status_code=502, detail=result["error"])
+    return {**result, "workflowUrl": github_service.status()["workflowUrl"]}
 
 @app.get("/jira/status")
 @app.get("/api/jira/status")

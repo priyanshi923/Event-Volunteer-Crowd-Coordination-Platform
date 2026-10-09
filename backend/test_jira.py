@@ -46,6 +46,7 @@ def test_jira_status_endpoint():
 # ---------------------------------------------------------
 # Test 3: Issue Creation & Transition Logic
 # ---------------------------------------------------------
+@patch.object(jira_service, 'enabled', True)
 @patch.object(jira_service, 'create_issue')
 @patch.object(jira_service, 'transition_issue')
 def test_task_creation_and_transition(mock_trans, mock_create):
@@ -134,6 +135,7 @@ def test_jira_webhook_processing():
 # ---------------------------------------------------------
 # Test 5: Manual Task Sync Endpoint
 # ---------------------------------------------------------
+@patch.object(jira_service, 'enabled', True)
 @patch.object(jira_service, 'get_issue')
 def test_task_jira_sync_endpoint(mock_get_issue):
     mock_get_issue.return_value = {
